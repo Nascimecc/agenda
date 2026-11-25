@@ -158,6 +158,9 @@ nav.tabs button.on{color:var(--p)}
 
 <script>
 /* ===================== Constantes ===================== */
+const ADMIN_EMAIL = 'gabrielson3006@gmail.com';
+const isAdmin = () => !!(S.user && (S.user.email||'').toLowerCase()===ADMIN_EMAIL);
+const AVISO_ADMIN = '<div class="banner" style="background:var(--pbg);color:var(--ink)">🔐 Só o Gabriel (administrador) pode alterar isto. Você vê tudo normalmente.</div>';
 const PROFS = { ednaldo:{nome:'Ednaldo',pron:'ele'}, elaine:{nome:'Elaine',pron:'ela'} };
 const TURNOS = { M:'Manhã', T:'Tarde' };
 const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -340,7 +343,7 @@ const Store = {
     if(DB){ try{ await DB.collection('bloqueios').doc(id).delete();}catch(e){erroDb(e)} } else lsSave(); },
   async saveCfg(){ render();
     if(DB){ try{
-      await DB.doc('config/equipe').set(JSON.parse(JSON.stringify({vagas:S.cfg.vagas,feriadosOff:S.cfg.feriadosOff??null})));
+      if(isAdmin()) await DB.doc('config/equipe').set(JSON.parse(JSON.stringify({vagas:S.cfg.vagas,feriadosOff:S.cfg.feriadosOff??null})));
       await DB.doc('perfil').set({msgModelo:S.cfg.msgModelo||null,acsNome:S.cfg.acsNome||''});
     }catch(e){erroDb(e)} } }
 };
@@ -508,7 +511,7 @@ function rBloqueios(){
   const hoje=todayIso();
   const lst=S.bl.filter(b=>b.fim>=hoje).sort((a,b)=>a.inicio.localeCompare(b.inicio));
   const afetados=S.ag.filter(a=>(blForm.prof==='ambos'||a.prof===blForm.prof)&&a.data>=blForm.inicio&&a.data<=blForm.fim&&(blForm.turno==='MT'||a.turno===blForm.turno)).length;
-  view.innerHTML=`<div class="card"><h3>🔒 Novo bloqueio</h3>
+  view.innerHTML=(isAdmin()?'':AVISO_ADMIN)+`<div class="card ${isAdmin()?'':'hidden'}"><h3>🔒 Novo bloqueio</h3>
   <label class="f">Profissional</label>
   <div class="seg" id="blProf">${['ednaldo','elaine','ambos'].map(p=>`<button data-v="${p}" class="${blForm.prof===p?'on':''}">${p==='ambos'?'Ambos':PROFS[p].nome}</button>`).join('')}</div>
   <div class="row" style="gap:8px"><div style="flex:1"><label class="f">De</label><input type="date" class="in" id="blIni" value="${blForm.inicio}"></div><div style="flex:1"><label class="f">Até</label><input type="date" class="in" id="blFim" value="${blForm.fim}"></div></div>
@@ -519,7 +522,7 @@ function rBloqueios(){
   <input class="in" id="blMot" style="margin-top:6px" placeholder="Ou escreva o motivo / observação" value="${esc(blForm.motivo)}">
   ${afetados?`<div class="banner" style="margin-top:10px">Atenção: ${afetados} paciente${afetados>1?'s já agendados':' já agendado'} nesse período. Eles vão para “A remarcar”.</div>`:''}
   <div style="margin-top:12px"><button class="btn p" data-act="salvar-bl" style="width:100%">Salvar bloqueio</button></div></div>
-  <div class="card"><h3>Bloqueios ativos e futuros</h3>${lst.length?`<div class="list">${lst.map(b=>`<div class="item"><div class="t"><b>${esc(b.motivo||'Sem motivo')}</b><small>${b.prof==='ambos'?'Ambos':PROFS[b.prof].nome} · ${b.inicio===b.fim?fmtCurto(b.inicio):fmtCurto(b.inicio)+' → '+fmtCurto(b.fim)} · ${b.turno==='MT'?'dia todo':TURNOS[b.turno]}</small></div><button class="btn sm d" data-act="del-bl" data-id="${b.id}">Remover</button></div>`).join('')}</div>`:'<div class="empty">Nenhum bloqueio cadastrado. Feriados já são bloqueados automaticamente (veja em Ajustes).</div>'}</div>`;
+  <div class="card"><h3>Bloqueios ativos e futuros</h3>${lst.length?`<div class="list">${lst.map(b=>`<div class="item"><div class="t"><b>${esc(b.motivo||'Sem motivo')}</b><small>${b.prof==='ambos'?'Ambos':PROFS[b.prof].nome} · ${b.inicio===b.fim?fmtCurto(b.inicio):fmtCurto(b.inicio)+' → '+fmtCurto(b.fim)} · ${b.turno==='MT'?'dia todo':TURNOS[b.turno]}</small></div>${isAdmin()?`<button class="btn sm d" data-act="del-bl" data-id="${b.id}">Remover</button>`:''}</div>`).join('')}</div>`:'<div class="empty">Nenhum bloqueio cadastrado. Feriados já são bloqueados automaticamente (veja em Ajustes).</div>'}</div>`;
   document.querySelectorAll('#blProf button').forEach(b=>b.onclick=()=>{blForm.prof=b.dataset.v;rBloqueios();});
   document.querySelectorAll('#blTurno button').forEach(b=>b.onclick=()=>{blForm.turno=b.dataset.v;rBloqueios();});
   $('#blIni').onchange=e=>{blForm.inicio=e.target.value; if(!blForm.fim||blForm.fim<blForm.inicio) blForm.fim=blForm.inicio; rBloqueios();};
@@ -617,10 +620,10 @@ function rAjustes(){
   const fer=[...feriadosDoAno(y),...feriadosDoAno(y+1)].filter(h=>h.data>=todayIso()).filter((h,i,arr)=>arr.findIndex(x=>x.key===h.key)===i);
   view.innerHTML=`<div class="card"><h3>Vagas por turno — ${PROFS[P].nome}</h3><div class="mini" style="margin-bottom:8px">Sua base de vagas. Use 0 quando não há atendimento. Você ainda pode agendar extra (urgência) acima disso.</div>
   <div class="vgrid"><div></div><div class="mini" style="text-align:center">Manhã</div><div class="mini" style="text-align:center">Tarde</div>
-  ${[1,2,3,4,5].map(w=>`<div style="font-weight:600">${DIAS_L[w]}</div>${['M','T'].map(t=>`<input type="number" min="0" max="20" class="in" data-w="${w}" data-t="${t}" value="${(v[w]||{})[t]||0}">`).join('')}`).join('')}</div>
-  <div style="margin-top:10px"><button class="btn p" data-act="salvar-vagas">Salvar vagas</button> <button class="btn" data-act="reset-vagas">Restaurar padrão</button></div></div>
+  ${[1,2,3,4,5].map(w=>`<div style="font-weight:600">${DIAS_L[w]}</div>${['M','T'].map(t=>`<input type="number" min="0" max="20" class="in" data-w="${w}" data-t="${t}" value="${(v[w]||{})[t]||0}" ${isAdmin()?'':'disabled'}>`).join('')}`).join('')}</div>
+  ${isAdmin()?`<div style="margin-top:10px"><button class="btn p" data-act="salvar-vagas">Salvar vagas</button> <button class="btn" data-act="reset-vagas">Restaurar padrão</button></div>`:'<div class="mini" style="margin-top:8px">🔐 Só o Gabriel altera as vagas.</div>'}</div>
   <div class="card"><h3>Feriados bloqueados automaticamente</h3><div class="mini" style="margin-bottom:6px">Desmarque os que a clínica abre. Os municipais marcados “conferir” dependem de decreto da Prefeitura.</div>
-  ${fer.map(h=>`<label class="switch"><span>${fmtCurto(h.data)} — ${esc(h.nome)}${h.obs?`<br><span class="mini">${esc(h.obs)}</span>`:''}</span><input type="checkbox" data-fer="${h.key}" ${off.includes(h.key)?'':'checked'}></label>`).join('')}</div>
+  ${fer.map(h=>`<label class="switch"><span>${fmtCurto(h.data)} — ${esc(h.nome)}${h.obs?`<br><span class="mini">${esc(h.obs)}</span>`:''}</span> <input type="checkbox" ${isAdmin()?'':'disabled'} data-fer="${h.key}" ${off.includes(h.key)?'':'checked'}></label>`).join('')}</div>
   <div class="card" id="cardMsg"><h3>📲 Mensagem de remarcação</h3><div class="mini" style="margin-bottom:6px">Escreva do seu jeito. Toque num campo abaixo para inserir — ele é trocado pelos dados de cada paciente. Use *texto* para negrito no WhatsApp.</div>
   <div class="chips" style="flex-wrap:wrap;margin-bottom:6px">${CAMPOS.map(([k,l])=>`<button class="chip" data-act="ins-campo" data-k="${k}">${l}</button>`).join('')}</div>
   <label class="f">Seu nome (aparece como {acs})</label><input class="in" id="acsNome" value="${esc(S.cfg.acsNome||'')}" placeholder="ex.: Michel" style="margin-bottom:8px">
@@ -685,7 +688,7 @@ function abrirDia(s,refresh){
   const botoesExtra = podeAbrir ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">${semVaga.map(t=>`<button class="btn sm" data-act="abrir-ext" data-d="${s}" data-t="${t}">➕ Abrir ${TURNOS[t].toLowerCase()} extra</button>`).join('')}</div><div class="mini" style="margin-top:4px">Use quando ${PROFS[P].nome} for atender fora do dia normal (ex.: compensar recesso).</div>` : '';
   if(!algum){ const f=feriadoEm(s); h+=`<div class="turno"><div class="empty">${PROFS[P].nome} não atende neste dia${f?' (feriado: '+esc(f.nome)+')':''}.</div>${botoesExtra}</div>`; }
   else { if(botoesExtra) h+=`<div class="turno">${botoesExtra}</div>`; }
-  if(algum && !mov && s>=todayIso()) h+=`<div style="margin-top:12px"><button class="btn" style="width:100%" data-act="bloquear-dia" data-d="${s}">🔒 Bloquear este dia/turno…</button></div>`;
+  if(algum && !mov && s>=todayIso() && isAdmin()) h+=`<div style="margin-top:12px"><button class="btn" style="width:100%" data-act="bloquear-dia" data-d="${s}">🔒 Bloquear este dia/turno…</button></div>`;
   sheet.innerHTML=h;
   if(!refresh){ sheet.classList.add('on'); scrim.classList.add('on'); sheet.scrollTop=0; }
 }
@@ -770,8 +773,8 @@ async function importarBackup(file){
   let j; try{ j=JSON.parse(await file.text()); }catch(e){ toast('Arquivo inválido.'); return; }
   let n=0;
   try{
-    for(const k in COLS){ for(const item of (j[k]||[])){ const {id,...b}=item; if(!id) continue; await DB.collection(COLS[k]).doc(id).set(b); n++; } }
-    if(j.cfg){ if(j.cfg.vagas) S.cfg.vagas=j.cfg.vagas; if('feriadosOff' in j.cfg) S.cfg.feriadosOff=j.cfg.feriadosOff; if(j.cfg.msgModelo) S.cfg.msgModelo=j.cfg.msgModelo; if(j.cfg.acsNome) S.cfg.acsNome=j.cfg.acsNome; await Store.saveCfg(); }
+    for(const k in COLS){ if(!isAdmin() && k==='bl') continue; for(const item of (j[k]||[])){ const {id,...b}=item; if(!id) continue; await DB.collection(COLS[k]).doc(id).set(b); n++; } }
+    if(j.cfg){ if(j.cfg.vagas && isAdmin()) S.cfg.vagas=j.cfg.vagas; if('feriadosOff' in j.cfg && isAdmin()) S.cfg.feriadosOff=j.cfg.feriadosOff; if(j.cfg.msgModelo) S.cfg.msgModelo=j.cfg.msgModelo; if(j.cfg.acsNome) S.cfg.acsNome=j.cfg.acsNome; await Store.saveCfg(); }
     toast(`✓ Backup importado: ${n} registros.`,6000);
   }catch(e){ erroDb(e); }
 }
