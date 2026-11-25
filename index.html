@@ -678,7 +678,9 @@ function abrirDia(s,refresh){
       <textarea class="in" rows="2" style="margin-top:6px;padding:8px;resize:vertical" placeholder="📝 Nota: motivo do agendamento (opcional)" data-draft="${k}o">${esc(rascunho[k+'o']||'')}</textarea>
       ${e.tipo!=='free'?'<div class="mini" style="margin-top:4px">'+(e.lot?'Agenda lotada':'Suas vagas estão cheias')+' — vai entrar como <b>extra (urgência)</b>.</div>':''}`;
     } else if(bl && !passado){
-      h+=`<div class="mini" style="margin-top:6px">Agendamento bloqueado neste turno.</div>`;
+      const kb=s+t+'b';
+      h+=`<div class="mini" style="margin-top:6px">Não dá para agendar neste turno. Se algum paciente <b>já estava marcado</b> antes do bloqueio, registre aqui — ele vai direto para remarcar:</div>
+      <div class="addrow"><input class="in" placeholder="Paciente que já estava marcado" data-draft="${kb}" value="${esc(rascunho[kb]||'')}"><button class="btn" data-act="add-bloq" data-d="${s}" data-t="${t}">+ Registrar</button></div>`;
     }
     if(!bl && !passado && !mov) h+= e.lot ? `<button class="btn sm" style="margin-top:8px" data-act="del-lot" data-id="${e.lot.id}">Desfazer “lotada”</button>` : `<button class="btn sm" style="margin-top:8px" data-act="lotar" data-d="${s}" data-t="${t}">📌 Marcar ${TURNOS[t].toLowerCase()} como lotada</button>`;
     if(ex && !L.length && !passado && !mov) h+=`<button class="btn sm d" style="margin-top:8px;margin-left:6px" data-act="del-ext" data-id="${ex.id}">Fechar atendimento extra</button>`;
@@ -791,6 +793,15 @@ document.addEventListener('click',async ev=>{
     case 'fechar': fecharSheet(); break;
     case 'mes': S.mes=new Date(S.mes.getFullYear(),S.mes.getMonth()+(+d.n),1); render(); break;
     case 'hoje': { const t=new Date(); S.mes=new Date(t.getFullYear(),t.getMonth(),1); render(); break; }
+    case 'add-bloq': {
+      const k=d.d+d.t+'b', inp=sheet.querySelector(`[data-draft="${k}"]`);
+      const nome=nomeProprio(inp.value); if(!nome){ inp.focus(); return; }
+      delete rascunho[k]; inp.value='';
+      const novo={prof:S.prof,data:d.d,turno:d.t,nome,obs:'',extra:false};
+      await Store.addAg(novo);
+      toast(`${esc(nome)} registrado(a) — escolha a nova data.`);
+      abrirRemarcar(novo.id);
+      break; }
     case 'add': {
       const k=d.d+d.t, nIn=sheet.querySelector(`[data-draft="${k}n"]`), oIn=sheet.querySelector(`[data-draft="${k}o"]`);
       const nome=nomeProprio(nIn.value); if(!nome){ nIn.focus(); return; }
@@ -980,7 +991,7 @@ $('#btnBuscar').onclick=()=>{ S.tab='buscar'; fecharSheet(); render(); window.sc
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ S.tab=b.dataset.t; fecharSheet(); render(); window.scrollTo({top:0}); });
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.matches('[data-draft$="n"]')){ const k=e.target.dataset.draft.slice(0,-1); const b=sheet.querySelector(`[data-act="add"][data-d="${k.slice(0,10)}"][data-t="${k.slice(10)}"]`); b&&b.click(); } if(e.key==='Escape') fecharSheet(); });
 
-function corrigirCampo(el){ if(el && el.matches('[data-draft$="n"],#edNome,#lemNome,#leNome')){ const v=nomeProprio(el.value); if(v!==el.value.trim()) el.value=v; } }
+function corrigirCampo(el){ if(el && el.matches('[data-draft$="n"],[data-draft$="b"],#edNome,#lemNome,#leNome')){ const v=nomeProprio(el.value); if(v!==el.value.trim()) el.value=v; } }
 document.addEventListener('paste',e=>{ const el=e.target; setTimeout(()=>corrigirCampo(el),0); });
 document.addEventListener('focusout',e=>corrigirCampo(e.target));
 iniciar();
