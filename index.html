@@ -122,9 +122,14 @@ nav.tabs button.on{color:var(--p)}
     <div style="font-size:44px">📅</div>
     <h1 style="font-size:22px;margin:6px 0 4px">Agenda de Consultas</h1>
     <div class="mini" style="margin-bottom:18px">Ednaldo e Elaine · Equipe Dr. João Clementino</div>
-    <div id="logMsg" class="mini" style="margin-bottom:14px">Entre com a sua conta Google. Cada ACS vê só os próprios pacientes; bloqueios e dias lotados são da equipe.</div>
-    <button class="btn p" id="btnLogin" style="width:100%;padding:12px;font-size:15px">Entrar com Google</button>
+    <div id="logMsg" class="mini" style="margin-bottom:14px">Cada ACS vê só os próprios pacientes; bloqueios e dias lotados são da equipe.</div>
+    <form id="formLogin" autocomplete="on" style="text-align:left">
+      <label class="f">Usuário</label><input class="in" id="logUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ex.: itatiana">
+      <label class="f">Senha</label><input class="in" id="logPass" type="password" autocomplete="current-password" placeholder="sua senha">
+      <button class="btn p" id="btnEntrar" type="submit" style="width:100%;padding:12px;font-size:15px;margin-top:14px">Entrar</button>
+    </form>
     <div id="logErr" class="mini" style="color:var(--bad);margin-top:10px"></div>
+    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:12px"><button class="btn sm" id="btnLogin" style="width:100%">Entrar com Google (administrador)</button></div>
   </div>
 </div>
 <div class="wrap">
@@ -380,7 +385,7 @@ function render(){
   const nLem=S.lem.length+S.todo.filter(t=>!t.feito).length; const b3=$('#badge3'); b3.textContent=nLem; b3.classList.toggle('hidden',!nLem);
   $('#btnBuscar').classList.toggle('p',S.tab==='buscar');
   const nAv=paraAvisar().length; const b2=$('#badge2'); b2.textContent=nAv; b2.classList.toggle('hidden',!nAv);
-  $('#sub').textContent = S.user ? (({carregando:'Carregando…', nuvem:'Salvo na nuvem ✓', lento:'Conexão lenta — dados podem estar desatualizados', erro:'Sem conexão com os dados', semacesso:'Sem acesso', cota:'Limite diário atingido'})[S.modo]||'')+' · '+(S.user.email||'') : 'Entre para usar';
+  $('#sub').textContent = S.user ? (({carregando:'Carregando…', nuvem:'Salvo na nuvem ✓', lento:'Conexão lenta — dados podem estar desatualizados', erro:'Sem conexão com os dados', semacesso:'Sem acesso', cota:'Limite diário atingido'})[S.modo]||'')+' · '+(S.user.usuario||S.user.email||'') : 'Entre para usar';
   $('#banner').innerHTML = S.modo==='semacesso' ? `<div class="banner" style="background:var(--badbg);color:var(--bad)">O e-mail <b>${esc(S.user&&S.user.email)}</b> ainda não tem acesso. Peça ao Gabriel para liberar e depois recarregue a página. <button class="btn sm" data-act="sair" style="margin-left:6px">Trocar de conta</button></div>`
     : S.modo==='cota' ? '<div class="banner" style="background:var(--badbg);color:var(--bad)">O limite diário gratuito do banco foi atingido. A agenda volta a funcionar de madrugada (por volta das 5h).</div>'
     : S.modo==='erro' ? '<div class="banner">Não consegui carregar os dados. Verifique a internet e recarregue a página.</div>' : '';
@@ -630,8 +635,8 @@ function rAjustes(){
   <textarea class="in" id="msgModelo" rows="7" style="resize:vertical;line-height:1.4">${esc(S.cfg.msgModelo||MSG_PADRAO)}</textarea>
   <label class="f">Prévia (exemplo)</label><div class="item" id="msgPrev" style="white-space:pre-wrap;font-size:13.5px;display:block"></div>
   <div class="row" style="margin-top:10px;gap:8px"><button class="btn p" data-act="salvar-msg">Salvar mensagem</button><button class="btn" data-act="msg-padrao">Voltar ao padrão</button></div></div>
-  <div class="card"><h3>Conta e dados</h3><div class="mini">Conectado como <b>${esc(S.user?S.user.email:'')}</b>.<br><b>Compartilhado com a equipe:</b> bloqueios, dias lotados, atendimentos extras, vagas por turno e feriados.<br><b>Só seu:</b> pacientes, avisos, lembretes, afazeres, notas e sua mensagem.<br>A agenda carrega os agendamentos dos últimos 60 dias em diante.</div>
-  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="exportar">⬇️ Fazer backup</button><label class="btn" style="display:inline-block">⬆️ Restaurar / importar backup<input type="file" accept=".json,application/json" id="impFile" style="display:none"></label><button class="btn d" data-act="sair">Sair</button></div>
+  <div class="card"><h3>Conta e dados</h3><div class="mini">Conectado como <b>${esc(S.user?(S.user.usuario||S.user.email):'')}</b>${isAdmin()?' (administrador)':''}.<br><b>Compartilhado com a equipe:</b> bloqueios, dias lotados, atendimentos extras, vagas por turno e feriados.<br><b>Só seu:</b> pacientes, avisos, lembretes, afazeres, notas e sua mensagem.<br>A agenda carrega os agendamentos dos últimos 60 dias em diante.</div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="exportar">⬇️ Fazer backup</button><label class="btn" style="display:inline-block">⬆️ Restaurar / importar backup<input type="file" accept=".json,application/json" id="impFile" style="display:none"></label>${S.user&&S.user.usuario?'<button class="btn" data-act="senha">🔑 Trocar senha</button>':''}<button class="btn d" data-act="sair">Sair</button></div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="copiar">Copiar lista dos próximos agendados</button><button class="btn" data-act="corrigir-nomes">Aa Corrigir nomes já salvos</button></div></div>`;
   const ta=$('#msgModelo'), pv=$('#msgPrev');
   const atualizarPrev=()=>{ const v=valoresMsg(EXEMPLO_MSG); v.acs=$('#acsNome').value||v.acs; pv.textContent=preencherMsg(ta.value, v); };
@@ -822,6 +827,21 @@ document.addEventListener('click',async ev=>{
     case 'ne-salvar': { const tx=$('#neTexto').value.trim(); if(!tx) return; const n=S.notas.find(x=>x.id===d.id); const antes=n?{texto:n.texto,editadoEm:n.editadoEm||null}:null; await Store.updNota(d.id,{texto:tx,editadoEm:Date.now()}); fecharSheet(); toast(`✓ Nota atualizada. ${antes?botaoDesfazer(()=>Store.updNota(d.id,antes)):''}`,7000); break; }
     case 'nt-del': { const n=S.notas.find(x=>x.id===d.id); if(!n) return; const c={...n}; await Store.delNota(d.id); fecharSheet(); toast(`Nota excluída. ${botaoDesfazer(()=>Store.restoreNota(c))}`,8000); break; }
     case 'exportar': exportarBackup(); break;
+    case 'senha': {
+      S.sheetDia=null;
+      sheet.innerHTML=`<div class="grab"></div><div class="row between"><h2>Trocar senha</h2><button class="icon" data-act="fechar">✕</button></div>
+      <label class="f">Senha atual</label><input class="in" type="password" id="pwAtual" autocomplete="current-password">
+      <label class="f">Nova senha (mínimo 6 caracteres)</label><input class="in" type="password" id="pwNova" autocomplete="new-password">
+      <label class="f">Repita a nova senha</label><input class="in" type="password" id="pwNova2" autocomplete="new-password">
+      <button class="btn p" style="width:100%;margin-top:12px" data-act="senha-ok">Salvar nova senha</button><div id="pwErr" class="mini" style="color:var(--bad);margin-top:8px"></div>`;
+      sheet.classList.add('on'); scrim.classList.add('on'); break; }
+    case 'senha-ok': {
+      const a=$('#pwAtual').value, n=$('#pwNova').value, n2=$('#pwNova2').value, er=$('#pwErr');
+      if(n.length<6){ er.textContent='A nova senha precisa ter pelo menos 6 caracteres.'; return; }
+      if(n!==n2){ er.textContent='As duas senhas novas não são iguais.'; return; }
+      try{ await window.trocarSenha(a,n); fecharSheet(); toast('🔑 Senha trocada.'); }
+      catch(e){ er.textContent = (e.code==='auth/invalid-credential'||e.code==='auth/wrong-password') ? 'Senha atual incorreta.' : 'Não consegui trocar ('+e.code+').'; }
+      break; }
     case 'sair': if(window.sairFirebase) window.sairFirebase(); break;
     case 'lem-sub': lemSub=d.v; rLembretes(); break;
     case 'td-salvar': { const tx=$('#tdTexto').value.trim(); if(!tx){ $('#tdTexto').focus(); return; } await Store.addTodo({texto:tx,prazo:$('#tdPrazo').value||null,feito:false}); todoForm={texto:'',prazo:''}; rLembretes(); toast('✅ Afazer adicionado.'); break; }
@@ -1014,10 +1034,10 @@ const V='10.12.2', B=`https://www.gstatic.com/firebasejs/${V}/`;
 const $l=s=>document.querySelector(s);
 if(!firebaseConfig.apiKey){
   $l('#logMsg').innerHTML='<b>Falta configurar o Firebase.</b><br>Cole o <code>firebaseConfig</code> no começo do arquivo index.html.';
-  $l('#btnLogin').disabled=true;
+  $l('#btnLogin').disabled=true; $l('#btnEntrar').disabled=true;
 } else {
   const { initializeApp } = await import(B+'firebase-app.js');
-  const { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } = await import(B+'firebase-auth.js');
+  const { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential } = await import(B+'firebase-auth.js');
   const FS = await import(B+'firebase-firestore.js');
   const app=initializeApp(firebaseConfig);
   const auth=getAuth(app);
@@ -1049,8 +1069,25 @@ if(!firebaseConfig.apiKey){
   };
   getRedirectResult(auth).catch(e=>{ $l('#logErr').textContent='Não consegui entrar ('+e.code+').'; });
   window.sairFirebase=()=>signOut(auth);
+  const DOMINIO='@acs.agenda';
+  const normUser=u=>String(u||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'');
+  $l('#formLogin').onsubmit=async ev=>{
+    ev.preventDefault(); $l('#logErr').textContent='';
+    const u=normUser($l('#logUser').value), p=$l('#logPass').value;
+    if(!u||!p){ $l('#logErr').textContent='Preencha usuário e senha.'; return; }
+    $l('#btnEntrar').disabled=true;
+    try{ await signInWithEmailAndPassword(auth, u.includes('@')?u:u+DOMINIO, p); }
+    catch(e){ $l('#logErr').textContent = ['auth/invalid-credential','auth/wrong-password','auth/user-not-found','auth/invalid-email'].includes(e.code) ? 'Usuário ou senha incorretos.' : e.code==='auth/too-many-requests' ? 'Muitas tentativas. Espere alguns minutos.' : 'Não consegui entrar ('+e.code+').'; }
+    finally{ $l('#btnEntrar').disabled=false; }
+  };
+  window.trocarSenha=async(atual,nova)=>{ const u=auth.currentUser; await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, atual)); await updatePassword(u, nova); };
   onAuthStateChanged(auth,u=>{
-    if(u){ $l('#login').classList.add('hidden'); conectar(adapter(u.uid),u); }
+    if(u){
+      const em=(u.email||'').toLowerCase(), local=em.endsWith(DOMINIO)?em.slice(0,-DOMINIO.length):null;
+      const nome=local?local.charAt(0).toUpperCase()+local.slice(1):u.displayName;
+      $l('#login').classList.add('hidden'); $l('#logPass').value='';
+      conectar(adapter(local||u.uid),{email:u.email,displayName:nome,uid:u.uid,usuario:local});
+    }
     else { desconectar(); S.user=null; S.modo='carregando'; render(); $l('#login').classList.remove('hidden'); }
   });
 }
