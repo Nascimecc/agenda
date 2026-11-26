@@ -114,6 +114,10 @@ nav.tabs button.on{color:var(--p)}
 .olho{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:transparent;cursor:pointer;color:var(--mute);display:flex;align-items:center;justify-content:center;border-radius:8px}
 .olho:hover{color:var(--ink)}
 .olho svg{width:20px;height:20px}
+.equipe{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.eqp{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--ink)}
+.eqp.eu{background:var(--pbg);border-color:transparent}
+.eqp.ext{border-color:var(--warn)} .eqp.ext small{color:var(--warn);font-weight:600}
 .chat{display:flex;flex-direction:column;gap:8px;margin:10px 0}
 .msg{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px 11px;max-width:92%;align-self:flex-start}
 .msg.eu{align-self:flex-end;background:var(--pbg);border-color:transparent}
@@ -271,6 +275,12 @@ const doTurno = (prof,s,t) => S.ag.filter(a=>a.prof===prof&&a.data===s&&a.turno=
 const lotado=(prof,s,t)=>S.lot.find(x=>x.prof===prof&&x.data===s&&x.turno===t)||null;
 const meuPid=()=>S.user&&S.user.pid;
 function equipeN(prof,s,t){ const k=prof+'|'+s+'|'+t; let n=doTurno(prof,s,t).length; for(const o of (S.ocup||[])){ if(o.id===meuPid()) continue; n+=((o.counts||{})[k]||0); } return n; }
+function equipeDetalhe(prof,s,t){
+  const k=prof+'|'+s+'|'+t, cap=vagas(prof,s,t), out=[];
+  const meu=doTurno(prof,s,t).length; if(meu) out.push({nome:S.cfg.acsNome||'Você',n:meu,eu:true});
+  for(const o of (S.ocup||[])){ if(o.id===meuPid()) continue; const n=(o.counts||{})[k]||0; if(n) out.push({nome:o.nome||o.id,n}); }
+  return out.sort((a,b)=>b.n-a.n||a.nome.localeCompare(b.nome)).map(x=>({...x,extra:Math.max(0,x.n-cap)}));
+}
 const equipeCap=(prof,s,t)=>vagas(prof,s,t)*(+S.cfg.nAcs||4);
 function estado(prof,s,t){
   const cap=vagas(prof,s,t); if(!cap){ const n0=doTurno(prof,s,t).length; return n0?{tipo:'over',cap:0,n:n0}:{tipo:'none',cap:0,n:0}; }
@@ -748,7 +758,8 @@ function abrirDia(s,refresh){
     const e=estado(P,s,t), L=doTurno(P,s,t), bl=e.bl;
     const passado = s<todayIso();
     h+=`<div class="turno ${bl?'lock':''}"><div class="hd"><b>${TURNOS[t]}${ex?' <span class="tag x">atend. extra</span>':''}</b><span class="pill s-${e.tipo}">${e.lot?'📌 lotada · ':''}${e.n}/${cap}${e.n>cap?' (+'+(e.n-cap)+' extra)':''}</span></div>`;
-    if(!bl && cap) h+=`<div class="mini" style="margin:-2px 0 6px">👥 Equipe: <b>${equipeN(P,s,t)}/${equipeCap(P,s,t)}</b> vagas usadas</div>`;
+    if(!bl && cap){ const det=equipeDetalhe(P,s,t);
+      h+=`<div class="mini" style="margin:-2px 0 6px">👥 Equipe: <b>${equipeN(P,s,t)}/${equipeCap(P,s,t)}</b> vagas usadas${det.length?`<div class="equipe">${det.map(x=>`<span class="eqp ${x.eu?'eu':''} ${x.extra?'ext':''}">${esc(x.nome)} <b>${x.n}</b>${x.extra?` <small>(+${x.extra} extra)</small>`:''}</span>`).join('')}</div>`:''}</div>`; }
     if(!bl && e.lot) h+= e.lot.auto ? `<div class="lockmsg" style="color:var(--warn)">📌 Agenda da equipe cheia (${e.lot.n}/${e.lot.cap})</div><div class="mini" style="margin:2px 0 6px">Calculado automaticamente com as agendas de todos. Não entra nas sugestões de vaga.</div>`
       : `<div class="lockmsg" style="color:var(--warn)">📌 Agenda lotada${e.lot.obs?' — '+esc(e.lot.obs):''}</div><div class="mini" style="margin:2px 0 6px">Marcado à mão. Não entra nas sugestões de vaga.</div>`;
     if(bl) h+=`<div class="lockmsg">🔒 ${esc(bl.motivo)}</div>${bl.feriado?'':`<div class="mini" style="margin:2px 0 6px">Bloqueio de ${bl.inicio===bl.fim?fmtCurto(bl.inicio):fmtCurto(bl.inicio)+' a '+fmtCurto(bl.fim)}</div>`}`;
