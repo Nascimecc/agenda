@@ -600,7 +600,7 @@ const fmtQuando = ts => { const d=new Date(ts); return pad(d.getDate())+'/'+pad(
 function rNotas(topo){
   const P=S.prof, N=S.notas.filter(n=>n.prof===P).sort((a,b)=>(b.fixada?1:0)-(a.fixada?1:0)||(b.editadoEm||b.criadoEm)-(a.editadoEm||a.criadoEm));
   let h=topo+`<div class="card"><h3>🗒️ Notas sobre ${PROFS[P].nome}</h3><div class="mini">Coisas para lembrar sobre ${PROFS[P].nome} — preferências, combinados, regras. Troque entre Ednaldo e Elaine no seletor lá em cima.</div>
-  <textarea class="in" id="ntTexto" rows="3" style="margin-top:8px;resize:vertical" placeholder="ex.: ${P==='ednaldo'?'Ednaldo prefere encaixes só no fim do turno':'Elaine pede para avisar 1 dia antes dos extras'}">${esc(notaTexto)}</textarea>
+  <textarea class="in" id="ntTexto" rows="3" style="margin-top:8px;resize:vertical">${esc(notaTexto)}</textarea>
   <button class="btn p" style="width:100%;margin-top:8px" data-act="nt-salvar">Adicionar nota</button></div>`;
   h+= N.length ? N.map(n=>`<div class="card" style="${n.fixada?'border-color:var(--p);background:var(--pbg)':''}"><div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;line-height:1.45">${n.fixada?'📌 ':''}${esc(n.texto)}</div>
     <div class="row between" style="margin-top:8px"><span class="mini">${n.editadoEm?'editada em '+fmtQuando(n.editadoEm):fmtQuando(n.criadoEm)}</span><span class="row" style="gap:6px"><button class="btn sm" data-act="nt-fixar" data-id="${n.id}">${n.fixada?'Desafixar':'📌 Fixar'}</button><button class="btn sm" data-act="nt-editar" data-id="${n.id}">✎</button></span></div></div>`).join('')
@@ -621,7 +621,7 @@ function rAfazeres(topo){
   const P=S.todo.filter(t=>!t.feito).sort((a,b)=>(a.prazo||'9999').localeCompare(b.prazo||'9999')||(a.criadoEm-b.criadoEm));
   const F=S.todo.filter(t=>t.feito).sort((a,b)=>(b.feitoEm||0)-(a.feitoEm||0));
   let h=topo+`<div class="card"><h3>✅ Novo afazer</h3><div class="mini">Tarefas suas que não são de um paciente só.</div>
-  <textarea class="in" id="tdTexto" rows="2" style="margin-top:8px;resize:vertical" placeholder="ex.: Ligar para os pacientes acima de 85 anos que serão visitados para vacinar">${esc(todoForm.texto)}</textarea>
+  <textarea class="in" id="tdTexto" rows="2" style="margin-top:8px;resize:vertical">${esc(todoForm.texto)}</textarea>
   <div class="row" style="gap:8px;margin-top:6px;align-items:flex-end"><div style="flex:1"><label class="f">Prazo (opcional)</label><input type="date" class="in" id="tdPrazo" value="${todoForm.prazo||''}"></div><button class="btn p" data-act="td-salvar" style="flex:1;padding:10px">Adicionar</button></div></div>`;
   h+=`<div class="card"><h3>A fazer (${P.length})</h3>${P.length?`<div class="list">${P.map(t=>{
     const atras=t.prazo&&t.prazo<hoje, ehHoje=t.prazo===hoje;
@@ -648,7 +648,7 @@ function rLembretesPac(topo){
   <label class="f">Profissional</label><div class="seg">${['ednaldo','elaine'].map(p=>`<button data-act="lem-prof" data-v="${p}" class="${lemForm.prof===p?'on':''}">${PROFS[p].nome}</button>`).join('')}</div>
   <div class="row" style="gap:8px"><div style="flex:1.2"><label class="f">Dia desejado (opcional)</label><input type="date" class="in" id="lemData" value="${lemForm.data||''}"></div>
   <div style="flex:1"><label class="f">Turno</label><div class="seg">${[['','—'],['M','Manhã'],['T','Tarde']].map(([v,l])=>`<button data-act="lem-turno" data-v="${v}" class="${lemForm.turno===v?'on':''}">${l}</button>`).join('')}</div></div></div>
-  <label class="f">Observação</label><input class="in" id="lemObs" placeholder="ex.: pedir para abrirem vaga, está lotado" value="${esc(lemForm.obs)}">
+  <label class="f">Observação</label><input class="in" id="lemObs" value="${esc(lemForm.obs)}">
   <button class="btn p" style="width:100%;margin-top:12px" data-act="lem-salvar">Salvar lembrete</button></div>`;
   h+=`<div class="card"><h3>Pendentes (${L.length})</h3>${L.length?`<div class="list">${L.map(l=>{
     const atras = l.data && l.data<hoje;
@@ -678,7 +678,7 @@ function rMural(){
         <div class="ma">${m.resolvido?`<span class="tag" style="background:var(--okbg);color:var(--ok)">✅ resolvido${m.resolvidoPor?' por '+esc(m.resolvidoPor):''}</span><button class="lnk" data-act="mu-reabrir" data-id="${m.id}">reabrir</button>`:`<button class="lnk" data-act="mu-resolver" data-id="${m.id}">✅ marcar resolvido</button>`}${(meu||isAdmin())?`<button class="lnk" data-act="mu-del" data-id="${m.id}">apagar</button>`:''}</div></div>`;}).join('')}</div>`
     : `<div class="card"><div class="empty">Nenhum recado ainda. Escreva o primeiro abaixo. 👇</div></div>`;
   h+=`<div class="card composer"><label class="f" style="margin-top:0">Para (opcional)</label><div class="chips" style="flex-wrap:wrap">${['',...EQUIPE.filter(n=>n.toLowerCase()!==eu.toLowerCase())].map(n=>`<button class="chip ${muralPara===n?'on':''}" data-act="mu-para" data-v="${n}">${n||'Todos'}</button>`).join('')}</div>
-    <textarea class="in" id="muTexto" rows="3" style="margin-top:8px;resize:vertical" placeholder="Ex.: Gilberto, precisa marcar a gestante da rua X para daqui a 2 semanas">${esc(muralTexto)}</textarea>
+    <textarea class="in" id="muTexto" rows="3" style="margin-top:8px;resize:vertical">${esc(muralTexto)}</textarea>
     <button class="btn p" style="width:100%;margin-top:8px" data-act="mu-enviar">Enviar recado</button></div>`;
   view.innerHTML=h;
   $('#muTexto').oninput=e=>{ muralTexto=e.target.value; };
@@ -708,7 +708,7 @@ function rAjustes(){
   ${fer.map(h=>`<label class="switch"><span>${fmtCurto(h.data)} — ${esc(h.nome)}${h.obs?`<br><span class="mini">${esc(h.obs)}</span>`:''}</span> <input type="checkbox" ${isAdmin()?'':'disabled'} data-fer="${h.key}" ${off.includes(h.key)?'':'checked'}></label>`).join('')}</div>
   <div class="card" id="cardMsg"><h3>📲 Mensagem de remarcação</h3><div class="mini" style="margin-bottom:6px">Escreva do seu jeito. Toque num campo abaixo para inserir — ele é trocado pelos dados de cada paciente. Use *texto* para negrito no WhatsApp.</div>
   <div class="chips" style="flex-wrap:wrap;margin-bottom:6px">${CAMPOS.map(([k,l])=>`<button class="chip" data-act="ins-campo" data-k="${k}">${l}</button>`).join('')}</div>
-  <label class="f">Seu nome (aparece como {acs})</label><input class="in" id="acsNome" value="${esc(S.cfg.acsNome||'')}" placeholder="ex.: Michel" style="margin-bottom:8px">
+  <label class="f">Seu nome (aparece como {acs})</label><input class="in" id="acsNome" value="${esc(S.cfg.acsNome||'')}" style="margin-bottom:8px">
   <textarea class="in" id="msgModelo" rows="7" style="resize:vertical;line-height:1.4">${esc(S.cfg.msgModelo||MSG_PADRAO)}</textarea>
   <label class="f">Prévia (exemplo)</label><div class="item" id="msgPrev" style="white-space:pre-wrap;font-size:13.5px;display:block"></div>
   <div class="row" style="margin-top:10px;gap:8px"><button class="btn p" data-act="salvar-msg">Salvar mensagem</button><button class="btn" data-act="msg-padrao">Voltar ao padrão</button></div></div>
@@ -806,7 +806,7 @@ function abrirCopiarMsg(id){
   const chips = a.turno==='M' ? ['8 da manhã','9 da manhã','10 da manhã','11 da manhã'] : ['13h','14h','15h','16h'];
   sheet.innerHTML=`<div class="grab"></div><div class="row between"><div><h2>Mensagem para ${esc(a.nome)}</h2><div class="mini">${PROFS[a.prof].nome} · nova data ${fmtCurto(a.data)} · ${TURNOS[a.turno].toLowerCase()}</div></div><button class="icon" data-act="fechar">✕</button></div>
   <label class="f">Horário da consulta</label>
-  <input class="in" id="hrIn" placeholder="ex.: 9 da manhã" value="${esc(a.horario||'')}" autocomplete="off">
+  <input class="in" id="hrIn" value="${esc(a.horario||'')}" autocomplete="off">
   <div class="chips" style="flex-wrap:wrap;margin-top:6px">${chips.map(c=>`<button class="chip" data-act="hora-chip" data-v="${c}">${c}</button>`).join('')}</div>
   <label class="f">Prévia</label>
   <div class="item" id="hrPrev" style="white-space:pre-wrap;font-size:14px;display:block;user-select:text"></div>
@@ -837,11 +837,11 @@ function abrirEditar(id){
   sheet.innerHTML=`<div class="grab"></div><div class="row between"><h2>Editar agendamento</h2><button class="icon" data-act="fechar">✕</button></div>
   <div class="mini">${PROFS[a.prof].nome} · ${fmtCurto(a.data)} · ${TURNOS[a.turno]}</div>
   <label class="f">Nome</label><input class="in" id="edNome" value="${esc(a.nome)}">
-  <label class="f">📝 Nota (motivo do agendamento)</label><textarea class="in" id="edObs" rows="4" style="resize:vertical" placeholder="ex.: visita domiciliar — paciente acamada, pós-cirurgia">${esc(a.obs||'')}</textarea>
+  <label class="f">📝 Nota (motivo do agendamento)</label><textarea class="in" id="edObs" rows="4" style="resize:vertical">${esc(a.obs||'')}</textarea>
   <div class="row" style="margin-top:12px;gap:8px"><button class="btn p" data-act="salvar-edit" data-id="${a.id}">Salvar</button><button class="btn" data-act="dia" data-d="${a.data}">Voltar</button></div>
   <div class="turno" style="margin-top:16px"><b>📲 Veio de outra data?</b><div class="mini" style="margin:2px 0 6px">Se você já mudou a data dele por fora (direto na agenda), informe a data antiga para ele ir para a aba Avisar.</div>
   <div class="row" style="gap:6px"><input type="date" class="in" id="edDe" value="${a.remarcadoDe||''}" style="flex:1.3"><select class="in" id="edDeT" style="flex:1"><option value="">Turno</option><option value="M" ${a.remarcadoDeT==='M'?'selected':''}>Manhã</option><option value="T" ${a.remarcadoDeT==='T'?'selected':''}>Tarde</option></select></div>
-  <input class="in" id="edMot" style="margin-top:6px" placeholder="Motivo (ex.: Ednaldo não pôde atender)" value="${esc(a.motivoRem||'')}">
+  <input class="in" id="edMot" style="margin-top:6px" placeholder="Motivo" value="${esc(a.motivoRem||'')}">
   <div class="row" style="margin-top:8px;gap:8px"><button class="btn sm p" data-act="marcar-remarcado" data-id="${a.id}">Mandar para Avisar</button>${a.remarcadoDe?`<button class="btn sm" data-act="limpar-remarcado" data-id="${a.id}">Não é remarcação</button>`:''}</div></div>`;
   sheet.classList.add('on'); scrim.classList.add('on');
 }
