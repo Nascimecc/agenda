@@ -455,6 +455,8 @@ function rAgenda(){
   const nb=bloqueiosNovos();
   if(nb.length) h+=`<div class="card" style="border-color:var(--bad)"><h3 style="color:var(--bad)">🔔 Bloqueio${nb.length>1?'s':''} novo${nb.length>1?'s':''}</h3>${nb.map(b=>{const n=meusAfetados(b).length;return `<div style="margin-top:6px;font-size:13.5px"><b>${esc(b.criadoPorNome||'A equipe')}</b> bloqueou <b>${b.prof==='ambos'?'Ednaldo e Elaine':PROFS[b.prof].nome}</b> · ${b.inicio===b.fim?fmtCurto(b.inicio):fmtCurto(b.inicio)+' a '+fmtCurto(b.fim)} · ${b.turno==='MT'?'dia todo':TURNOS[b.turno].toLowerCase()} — ${esc(b.motivo||'')}${n?`<br><span style="color:var(--bad);font-weight:600">${n} paciente${n>1?'s':''} seu${n>1?'s':''} para remarcar</span>`:''}</div>`;}).join('')}
   <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">${nb.some(b=>meusAfetados(b).length)?'<button class="btn sm p" data-act="ir-remarcar">Ver pacientes para remarcar</button>':''}<button class="btn sm" data-act="bl-visto">Ok, entendi</button></div></div>`;
+  const anot=S.ag.filter(a=>a.anotadoPor&&a.anotadoVisto===false).sort((a,b)=>a.data.localeCompare(b.data));
+  if(anot.length) h+=`<div class="card" style="border-color:var(--p)"><h3>📥 ${esc(anot[0].anotadoPor)} anotou ${anot.length} paciente${anot.length>1?'s':''} na sua agenda</h3>${anot.map(a=>`<div class="mini" style="margin-top:3px;color:var(--ink)">• <b>${esc(a.nome)}</b> — ${PROFS[a.prof].nome}, ${fmtCurto(a.data)} ${TURNOS[a.turno].toLowerCase()}${a.obs?' · '+esc(a.obs):''}</div>`).join('')}<button class="btn sm" style="margin-top:8px" data-act="anotados-visto">Ok, vi</button></div>`;
   const nm=muralNaoLidas();
   if(nm.length) h+=`<div class="card" style="background:var(--pbg);border-color:transparent;cursor:pointer" data-act="ir-mural"><h3 style="margin:0">💬 ${nm.length} recado${nm.length>1?'s':''} novo${nm.length>1?'s':''} no mural</h3><div class="mini" style="margin-top:4px">${esc(nm[nm.length-1].autorNome||'')}: ${esc(String(nm[nm.length-1].texto||'').slice(0,90))}${String(nm[nm.length-1].texto||'').length>90?'…':''}</div></div>`;
   if(S.mover){ const a=S.ag.find(x=>x.id===S.mover);
@@ -670,6 +672,8 @@ function rLembretesPac(topo){
   $('#lemData').onchange=e=>{ lemForm.data=e.target.value; };
 }
 const EQUIPE=['Gabriel','Itatiana','Gilberto','Michel'];
+const OUTROS_ACS=[['itatiana','Itatiana'],['gilberto','Gilberto'],['michel','Michel']];
+let anotarPara='';
 function muralNaoLidas(){ return (S.mural||[]).filter(m=>m.criadoEm>(S.muralLido||0) && m.autorId!==meuPid()); }
 function quando(ts){ const d=new Date(ts), h=new Date(), hm=pad(d.getHours())+':'+pad(d.getMinutes());
   const dd=iso(d); if(dd===iso(h)) return 'hoje '+hm; if(dd===iso(addDays(h,-1))) return 'ontem '+hm; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+hm; }
@@ -738,7 +742,7 @@ function rAjustes(){
 
 /* ===================== Folha do dia ===================== */
 const sheet=$('#sheet'), scrim=$('#scrim');
-function fecharSheet(){ if(S.lemNome){ S.lemNome=null; }  sheet.classList.remove('on'); scrim.classList.remove('on'); S.sheetDia=null; }
+function fecharSheet(){ anotarPara='';  if(S.lemNome){ S.lemNome=null; }  sheet.classList.remove('on'); scrim.classList.remove('on'); S.sheetDia=null; }
 scrim.onclick=fecharSheet;
 const rascunho={};
 function abrirDia(s,refresh){
@@ -763,12 +767,16 @@ function abrirDia(s,refresh){
     if(!bl && e.lot) h+= e.lot.auto ? `<div class="lockmsg" style="color:var(--warn)">📌 Agenda da equipe cheia (${e.lot.n}/${e.lot.cap})</div><div class="mini" style="margin:2px 0 6px">Calculado automaticamente com as agendas de todos. Não entra nas sugestões de vaga.</div>`
       : `<div class="lockmsg" style="color:var(--warn)">📌 Agenda lotada${e.lot.obs?' — '+esc(e.lot.obs):''}</div><div class="mini" style="margin:2px 0 6px">Marcado à mão. Não entra nas sugestões de vaga.</div>`;
     if(bl) h+=`<div class="lockmsg">🔒 ${esc(bl.motivo)}</div>${bl.feriado?'':`<div class="mini" style="margin:2px 0 6px">Bloqueio de ${bl.inicio===bl.fim?fmtCurto(bl.inicio):fmtCurto(bl.inicio)+' a '+fmtCurto(bl.fim)}</div>`}`;
-    h+= L.length ? `<div class="list">${L.map((a,i)=>`<div class="item"><div class="t"><b>${i+1}. ${esc(a.nome)}</b>${a.remarcadoDe?`<small>remarcado de ${fmtCurto(a.remarcadoDe)}</small>`:''}${a.obs?`<div class="nota">📝 ${esc(a.obs)}</div>`:''}</div>${ehExtra(a)?'<span class="tag x">extra</span>':''}<button class="btn sm" data-act="editar" data-id="${a.id}">✎</button><button class="btn sm" data-act="remarcar" data-id="${a.id}">Remarcar</button></div>`).join('')}</div>` : (bl?'':'<div class="empty">Nenhum paciente.</div>');
+    h+= L.length ? `<div class="list">${L.map((a,i)=>`<div class="item"><div class="t"><b>${i+1}. ${esc(a.nome)}</b>${a.remarcadoDe?`<small>remarcado de ${fmtCurto(a.remarcadoDe)}</small>`:''}${a.anotadoPor?`<small style="display:block">anotado por ${esc(a.anotadoPor)}</small>`:''}${a.obs?`<div class="nota">📝 ${esc(a.obs)}</div>`:''}</div>${ehExtra(a)?'<span class="tag x">extra</span>':''}<button class="btn sm" data-act="editar" data-id="${a.id}">✎</button><button class="btn sm" data-act="remarcar" data-id="${a.id}">Remarcar</button></div>`).join('')}</div>` : (bl?'':'<div class="empty">Nenhum paciente.</div>');
     if(mov){
       const mesmo = mov.data===s&&mov.turno===t&&mov.prof===P;
       if(!bl && !mesmo && !passado) h+=`<button class="btn p" style="width:100%;margin-top:8px" data-act="mover-aqui" data-d="${s}" data-t="${t}">${e.n>=cap?'Mover para cá como extra':'Mover '+esc(mov.nome)+' para cá'}</button>`;
     } else if(!bl && !passado){
       const k=s+t;
+      if(isAdmin()) h+=`<div class="chips" style="flex-wrap:wrap;margin-top:6px"><span class="mini" style="align-self:center">Agenda de:</span>${[['','Eu'],...OUTROS_ACS].map(([p,n])=>`<button class="chip ${anotarPara===p?'on':''}" data-act="anotar-para" data-v="${p}" style="padding:5px 10px">${n}</button>`).join('')}</div>`;
+      const pOutro=anotarPara?OUTROS_ACS.find(x=>x[0]===anotarPara):null;
+      const nOutro=pOutro?((S.ocup||[]).find(o=>o.id===pOutro[0])||{counts:{}}).counts[P+'|'+s+'|'+t]||0:0;
+      if(pOutro) h+=`<div class="mini" style="margin-top:4px">Vai para a agenda do <b>${pOutro[1]}</b> (${nOutro}/${cap} vagas dele)${nOutro>=cap?' — entra como <b>extra</b>':''}.</div>`;
       h+=`<div class="addrow"><input class="in" placeholder="Nome do paciente" data-draft="${k}n" value="${esc(rascunho[k+'n']||'')}"><button class="btn p" data-act="add" data-d="${s}" data-t="${t}">${e.n>=cap?'+ Extra':'+'}</button></div>
       <textarea class="in" rows="2" style="margin-top:6px;padding:8px;resize:vertical" placeholder="📝 Nota: motivo do agendamento (opcional)" data-draft="${k}o">${esc(rascunho[k+'o']||'')}</textarea>
       ${e.n>=cap?'<div class="mini" style="margin-top:4px">Suas vagas estão cheias — vai entrar como <b>extra (urgência)</b>.</div>':e.lot?'<div class="mini" style="margin-top:4px">📌 Agenda da equipe lotada. Pode lançar normalmente os pacientes que já estavam nas suas vagas.</div>':''}`;
@@ -904,6 +912,18 @@ document.addEventListener('click',async ev=>{
       const e=estado(S.prof,d.d,d.t);
       const obs=(oIn.value||'').trim();
       delete rascunho[k+'n']; delete rascunho[k+'o']; nIn.value=''; oIn.value='';
+      if(anotarPara && isAdmin()){
+        const [pid,pn]=OUTROS_ACS.find(x=>x[0]===anotarPara);
+        const ck=S.prof+'|'+d.d+'|'+d.t, oc=(S.ocup||[]).find(o=>o.id===pid), nAtual=(oc&&oc.counts&&oc.counts[ck])||0;
+        const id=uid();
+        try{
+          await DB.outro(pid,'agendamentos').doc(id).set({prof:S.prof,data:d.d,turno:d.t,nome,obs,extra:nAtual>=vagas(S.prof,d.d,d.t),criadoEm:Date.now(),anotadoPor:S.cfg.acsNome||'Gabriel',anotadoVisto:false});
+          await DB.collection('ocupacao').doc(pid).merge({counts:{[ck]:nAtual+1}});
+          if(oc){ oc.counts={...(oc.counts||{}),[ck]:nAtual+1}; } else { S.ocup=[...(S.ocup||[]),{id:pid,nome:pn,counts:{[ck]:1}}]; }
+          render(); toast(`✓ ${esc(nome)} anotado(a) na agenda do <b>${pn}</b> — ${fmtCurto(d.d)} ${TURNOS[d.t].toLowerCase()}`,6000);
+        }catch(err){ erroDb(err); }
+        break;
+      }
       await Store.addAg({prof:S.prof,data:d.d,turno:d.t,nome,obs,extra:e.n>=e.cap});
       const lem = S.lemAg ? S.lem.find(l=>l.id===S.lemAg) : S.lem.find(l=>l.prof===S.prof&&nomeProprio(l.nome)===nome);
       S.lemAg=null;
@@ -911,6 +931,8 @@ document.addEventListener('click',async ev=>{
       else toast(`✓ ${esc(nome)} agendado(a) — ${fmtCurto(d.d)} ${TURNOS[d.t].toLowerCase()}`);
       break; }
     case 'remarcar': abrirRemarcar(d.id); break;
+    case 'anotar-para': anotarPara=d.v; abrirDia(S.sheetDia,true); break;
+    case 'anotados-visto': { const L=S.ag.filter(a=>a.anotadoPor&&a.anotadoVisto===false); for(const a of L) await Store.updAg(a.id,{anotadoVisto:true}); break; }
     case 'nt-salvar': { const tx=$('#ntTexto').value.trim(); if(!tx){ $('#ntTexto').focus(); return; } await Store.addNota({prof:S.prof,texto:tx,fixada:false}); notaTexto=''; rLembretes(); toast('🗒️ Nota salva.'); break; }
     case 'nt-fixar': { const n=S.notas.find(x=>x.id===d.id); if(!n) return; await Store.updNota(d.id,{fixada:!n.fixada}); break; }
     case 'nt-editar': abrirEditarNota(d.id); break;
@@ -1162,6 +1184,7 @@ if(!firebaseConfig.apiKey){
     });
     return {
       collection:n=>{ const c=FS.collection(db,cpath(n)); const w=wrapQ(c); w.doc=id=>refOps(FS.doc(c,id)); return w; },
+      outro:(pid,n)=>({ doc:id=>refOps(FS.doc(FS.collection(db,`usuarios/${pid}/${n}`),id)) }),
       doc:p=>{ const r=FS.doc(db,dpath(p)); return { ...refOps(r), onSnapshot:(next,err)=>FS.onSnapshot(r,{includeMetadataChanges:true},s=>next({exists:s.exists(),data:()=>s.data(),metadata:s.metadata}),err) }; }
     };
   }
