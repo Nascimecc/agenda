@@ -109,6 +109,11 @@ nav.tabs button.on{color:var(--p)}
 .undo{background:#fff;color:#111827;border:0;border-radius:8px;padding:5px 10px;font-weight:700;margin-left:8px;cursor:pointer}
 .banner{font-size:12px;padding:8px 10px;border-radius:10px;background:var(--warnbg);color:var(--warn);margin-bottom:8px}
 .hidden{display:none!important}
+.pw{position:relative}
+.pw .in{padding-right:46px}
+.olho{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:transparent;cursor:pointer;color:var(--mute);display:flex;align-items:center;justify-content:center;border-radius:8px}
+.olho:hover{color:var(--ink)}
+.olho svg{width:20px;height:20px}
 .login{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
 .logbox{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px 22px;max-width:380px;width:100%;text-align:center}
 .mini{font-size:12px;color:var(--mute)}
@@ -125,7 +130,7 @@ nav.tabs button.on{color:var(--p)}
     <div id="logMsg" class="mini" style="margin-bottom:14px">Cada ACS vê só os próprios pacientes; bloqueios e dias lotados são da equipe.</div>
     <form id="formLogin" autocomplete="on" style="text-align:left">
       <label class="f">Usuário</label><input class="in" id="logUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
-      <label class="f">Senha</label><input class="in" id="logPass" type="password" autocomplete="current-password">
+      <label class="f">Senha</label><div class="pw"><input class="in" id="logPass" type="password" autocomplete="current-password"><button type="button" class="olho" data-olho tabindex="-1" aria-label="Mostrar senha" title="Mostrar senha"></button></div>
       <button class="btn p" id="btnEntrar" type="submit" style="width:100%;padding:12px;font-size:15px;margin-top:14px">Entrar</button>
     </form>
     <div id="logErr" class="mini" style="color:var(--bad);margin-top:10px"></div>
@@ -830,9 +835,9 @@ document.addEventListener('click',async ev=>{
     case 'senha': {
       S.sheetDia=null;
       sheet.innerHTML=`<div class="grab"></div><div class="row between"><h2>Trocar senha</h2><button class="icon" data-act="fechar">✕</button></div>
-      <label class="f">Senha atual</label><input class="in" type="password" id="pwAtual" autocomplete="current-password">
-      <label class="f">Nova senha (mínimo 6 caracteres)</label><input class="in" type="password" id="pwNova" autocomplete="new-password">
-      <label class="f">Repita a nova senha</label><input class="in" type="password" id="pwNova2" autocomplete="new-password">
+      <label class="f">Senha atual</label><div class="pw"><input class="in" type="password" id="pwAtual" autocomplete="current-password"><button type="button" class="olho" data-olho tabindex="-1" aria-label="Mostrar senha" title="Mostrar senha"></button></div>
+      <label class="f">Nova senha (mínimo 6 caracteres)</label><div class="pw"><input class="in" type="password" id="pwNova" autocomplete="new-password"><button type="button" class="olho" data-olho tabindex="-1" aria-label="Mostrar senha" title="Mostrar senha"></button></div>
+      <label class="f">Repita a nova senha</label><div class="pw"><input class="in" type="password" id="pwNova2" autocomplete="new-password"><button type="button" class="olho" data-olho tabindex="-1" aria-label="Mostrar senha" title="Mostrar senha"></button></div>
       <button class="btn p" style="width:100%;margin-top:12px" data-act="senha-ok">Salvar nova senha</button><div id="pwErr" class="mini" style="color:var(--bad);margin-top:8px"></div>`;
       sheet.classList.add('on'); scrim.classList.add('on'); break; }
     case 'senha-ok': {
@@ -1014,6 +1019,14 @@ document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.matches('[
 function corrigirCampo(el){ if(el && el.matches('[data-draft$="n"],[data-draft$="b"],#edNome,#lemNome,#leNome')){ const v=nomeProprio(el.value); if(v!==el.value.trim()) el.value=v; } }
 document.addEventListener('paste',e=>{ const el=e.target; setTimeout(()=>corrigirCampo(el),0); });
 document.addEventListener('focusout',e=>corrigirCampo(e.target));
+const OLHO_ABERTO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const OLHO_FECHADO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function pintarOlhos(root){ (root||document).querySelectorAll('[data-olho]').forEach(b=>{ if(!b.innerHTML) b.innerHTML=OLHO_ABERTO; }); }
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-olho]'); if(!b) return; e.preventDefault(); e.stopPropagation();
+  const i=b.parentElement.querySelector('input'); const mostrar=i.type==='password'; i.type=mostrar?'text':'password';
+  b.innerHTML=mostrar?OLHO_FECHADO:OLHO_ABERTO; b.title=b.ariaLabel=mostrar?'Ocultar senha':'Mostrar senha'; i.focus(); },true);
+new MutationObserver(()=>pintarOlhos()).observe(document.body,{childList:true,subtree:true});
+pintarOlhos();
 iniciar();
 </script>
 
