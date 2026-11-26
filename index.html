@@ -293,6 +293,7 @@ function opcoesRemarcar(prof,qtd,excluir,soLotados){
   }
   return out;
 }
+function ehExtra(a){ const cap=vagas(a.prof,a.data,a.turno); const L=doTurno(a.prof,a.data,a.turno); const i=L.findIndex(x=>x.id===a.id); return i>=cap; }
 function aRemarcar(){
   const hoje=todayIso();
   return S.ag.filter(a=>a.data>=hoje && bloqueio(a.prof,a.data,a.turno)).sort((a,b)=>a.data.localeCompare(b.data)||a.turno.localeCompare(b.turno));
@@ -438,7 +439,7 @@ function rAgenda(){
 }
 function itemAg(a,mostrarProf){
   const bl=bloqueio(a.prof,a.data,a.turno);
-  return `<div class="item"><div class="t" data-act="dia" data-d="${a.data}" data-p="${a.prof}" style="cursor:pointer"><b>${esc(a.nome)}</b><small>${fmtCurto(a.data)} · ${TURNOS[a.turno]}${mostrarProf?' · '+PROFS[a.prof].nome:''}</small>${a.obs?'<div class="nota">📝 '+esc(a.obs)+'</div>':''}</div>${a.extra?'<span class="tag x">extra</span>':''}${bl?'<span class="tag">bloqueado</span>':''}<button class="btn sm" data-act="remarcar" data-id="${a.id}">Remarcar</button></div>`;
+  return `<div class="item"><div class="t" data-act="dia" data-d="${a.data}" data-p="${a.prof}" style="cursor:pointer"><b>${esc(a.nome)}</b><small>${fmtCurto(a.data)} · ${TURNOS[a.turno]}${mostrarProf?' · '+PROFS[a.prof].nome:''}</small>${a.obs?'<div class="nota">📝 '+esc(a.obs)+'</div>':''}</div>${ehExtra(a)?'<span class="tag x">extra</span>':''}${bl?'<span class="tag">bloqueado</span>':''}<button class="btn sm" data-act="remarcar" data-id="${a.id}">Remarcar</button></div>`;
 }
 
 let plano=null;
@@ -678,15 +679,15 @@ function abrirDia(s,refresh){
     h+=`<div class="turno ${bl?'lock':''}"><div class="hd"><b>${TURNOS[t]}${ex?' <span class="tag x">atend. extra</span>':''}</b><span class="pill s-${e.tipo}">${e.lot?'📌 lotada · ':''}${e.n}/${cap}${e.n>cap?' (+'+(e.n-cap)+' extra)':''}</span></div>`;
     if(!bl && e.lot) h+=`<div class="lockmsg" style="color:var(--warn)">📌 Agenda lotada${e.lot.obs?' — '+esc(e.lot.obs):''}</div><div class="mini" style="margin:2px 0 6px">Vagas preenchidas (inclusive pelos colegas). Não entra nas sugestões de vaga.</div>`;
     if(bl) h+=`<div class="lockmsg">🔒 ${esc(bl.motivo)}</div>${bl.feriado?'':`<div class="mini" style="margin:2px 0 6px">Bloqueio de ${bl.inicio===bl.fim?fmtCurto(bl.inicio):fmtCurto(bl.inicio)+' a '+fmtCurto(bl.fim)}</div>`}`;
-    h+= L.length ? `<div class="list">${L.map((a,i)=>`<div class="item"><div class="t"><b>${i+1}. ${esc(a.nome)}</b>${a.remarcadoDe?`<small>remarcado de ${fmtCurto(a.remarcadoDe)}</small>`:''}${a.obs?`<div class="nota">📝 ${esc(a.obs)}</div>`:''}</div>${a.extra?'<span class="tag x">extra</span>':''}<button class="btn sm" data-act="editar" data-id="${a.id}">✎</button><button class="btn sm" data-act="remarcar" data-id="${a.id}">Remarcar</button></div>`).join('')}</div>` : (bl?'':'<div class="empty">Nenhum paciente.</div>');
+    h+= L.length ? `<div class="list">${L.map((a,i)=>`<div class="item"><div class="t"><b>${i+1}. ${esc(a.nome)}</b>${a.remarcadoDe?`<small>remarcado de ${fmtCurto(a.remarcadoDe)}</small>`:''}${a.obs?`<div class="nota">📝 ${esc(a.obs)}</div>`:''}</div>${ehExtra(a)?'<span class="tag x">extra</span>':''}<button class="btn sm" data-act="editar" data-id="${a.id}">✎</button><button class="btn sm" data-act="remarcar" data-id="${a.id}">Remarcar</button></div>`).join('')}</div>` : (bl?'':'<div class="empty">Nenhum paciente.</div>');
     if(mov){
       const mesmo = mov.data===s&&mov.turno===t&&mov.prof===P;
-      if(!bl && !mesmo && !passado) h+=`<button class="btn p" style="width:100%;margin-top:8px" data-act="mover-aqui" data-d="${s}" data-t="${t}">${e.tipo!=='free'?'Mover para cá como extra':'Mover '+esc(mov.nome)+' para cá'}</button>`;
+      if(!bl && !mesmo && !passado) h+=`<button class="btn p" style="width:100%;margin-top:8px" data-act="mover-aqui" data-d="${s}" data-t="${t}">${e.n>=cap?'Mover para cá como extra':'Mover '+esc(mov.nome)+' para cá'}</button>`;
     } else if(!bl && !passado){
       const k=s+t;
-      h+=`<div class="addrow"><input class="in" placeholder="Nome do paciente" data-draft="${k}n" value="${esc(rascunho[k+'n']||'')}"><button class="btn p" data-act="add" data-d="${s}" data-t="${t}">${e.tipo!=='free'?'+ Extra':'+'}</button></div>
+      h+=`<div class="addrow"><input class="in" placeholder="Nome do paciente" data-draft="${k}n" value="${esc(rascunho[k+'n']||'')}"><button class="btn p" data-act="add" data-d="${s}" data-t="${t}">${e.n>=cap?'+ Extra':'+'}</button></div>
       <textarea class="in" rows="2" style="margin-top:6px;padding:8px;resize:vertical" placeholder="📝 Nota: motivo do agendamento (opcional)" data-draft="${k}o">${esc(rascunho[k+'o']||'')}</textarea>
-      ${e.tipo!=='free'?'<div class="mini" style="margin-top:4px">'+(e.lot?'Agenda lotada':'Suas vagas estão cheias')+' — vai entrar como <b>extra (urgência)</b>.</div>':''}`;
+      ${e.n>=cap?'<div class="mini" style="margin-top:4px">Suas vagas estão cheias — vai entrar como <b>extra (urgência)</b>.</div>':e.lot?'<div class="mini" style="margin-top:4px">📌 Agenda da equipe lotada. Pode lançar normalmente os pacientes que já estavam nas suas vagas.</div>':''}`;
     } else if(bl && !passado){
       const kb=s+t+'b';
       h+=`<div class="mini" style="margin-top:6px">Não dá para agendar neste turno. Se algum paciente <b>já estava marcado</b> antes do bloqueio, registre aqui — ele vai direto para remarcar:</div>
@@ -819,7 +820,7 @@ document.addEventListener('click',async ev=>{
       const e=estado(S.prof,d.d,d.t);
       const obs=(oIn.value||'').trim();
       delete rascunho[k+'n']; delete rascunho[k+'o']; nIn.value=''; oIn.value='';
-      await Store.addAg({prof:S.prof,data:d.d,turno:d.t,nome,obs,extra:e.tipo!=='free'});
+      await Store.addAg({prof:S.prof,data:d.d,turno:d.t,nome,obs,extra:e.n>=e.cap});
       const lem = S.lemAg ? S.lem.find(l=>l.id===S.lemAg) : S.lem.find(l=>l.prof===S.prof&&nomeProprio(l.nome)===nome);
       S.lemAg=null;
       if(lem && nomeProprio(lem.nome)===nome){ const c={...lem}; await Store.delLem(lem.id); toast(`✓ ${esc(nome)} agendado(a) — ${fmtCurto(d.d)} ${TURNOS[d.t].toLowerCase()}<br>📝 Lembrete concluído. ${botaoDesfazer(()=>Store.restoreLem(c))}`,8000); }
@@ -1003,7 +1004,7 @@ async function moverPara(id,s,t){
   const de=a.data, deT=a.turno;
   const motivoRem=(bloqueio(a.prof,de,deT)||{}).motivo||'';
   const antes=snapMov(a);
-  await Store.updAg(id,{data:s,turno:t,extra:e.tipo!=='free',remarcadoDe:de,remarcadoDeT:deT,motivoRem,avisado:false});
+  await Store.updAg(id,{data:s,turno:t,extra:e.n>=e.cap,remarcadoDe:de,remarcadoDeT:deT,motivoRem,avisado:false});
   S.mover=null; fecharSheet(); render();
   toast(`✓ ${esc(a.nome)}: ${fmtCurto(de)} ${deT} → <b>${fmtCurto(s)} · ${TURNOS[t]}</b><br>Ele(a) está na aba Avisar. ${botaoDesfazer(()=>Store.updAg(id,antes))}`,9000);
 }
