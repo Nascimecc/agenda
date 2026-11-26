@@ -84,8 +84,8 @@ label.f{display:block;font-size:12px;color:var(--mute);margin:8px 0 4px;font-wei
 /* bottom nav */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom);z-index:5}
 nav.tabs .in2{display:flex;max-width:760px;width:100%}
-nav.tabs button{flex:1;border:0;background:none;padding:10px 4px 9px;font-size:11.5px;color:var(--mute);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:600;position:relative}
-nav.tabs button span.e{font-size:19px}
+nav.tabs button{flex:1;border:0;background:none;padding:9px 2px 8px;font-size:10.5px;color:var(--mute);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:600;position:relative}
+nav.tabs button span.e{font-size:18px}
 nav.tabs button.on{color:var(--p)}
 .badge{position:absolute;top:4px;right:calc(50% - 22px);background:var(--bad);color:#fff;border-radius:999px;font-size:10px;padding:1px 5px}
 /* sheet */
@@ -114,6 +114,16 @@ nav.tabs button.on{color:var(--p)}
 .olho{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:transparent;cursor:pointer;color:var(--mute);display:flex;align-items:center;justify-content:center;border-radius:8px}
 .olho:hover{color:var(--ink)}
 .olho svg{width:20px;height:20px}
+.chat{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.msg{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px 11px;max-width:92%;align-self:flex-start}
+.msg.eu{align-self:flex-end;background:var(--pbg);border-color:transparent}
+.msg.pramim{border:2px solid var(--p)}
+.msg.feito{opacity:.6}
+.msg .mh{font-size:12px;color:var(--mute);display:flex;gap:6px;flex-wrap:wrap;align-items:baseline}
+.msg .mh b{color:var(--ink)} .msg .mh span{margin-left:auto}
+.msg .mt{white-space:pre-wrap;word-break:break-word;font-size:14.5px;margin-top:3px;line-height:1.4}
+.msg .ma{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.lnk{border:0;background:none;color:var(--p);font-size:12.5px;font-weight:600;cursor:pointer;padding:2px 0}
 .login{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
 .logbox{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px 22px;max-width:380px;width:100%;text-align:center}
 .mini{font-size:12px;color:var(--mute)}
@@ -159,6 +169,7 @@ nav.tabs button.on{color:var(--p)}
   <button data-t="avisar"><span class="e">📲</span>Avisar<span class="badge hidden" id="badge2"></span></button>
   <button data-t="bloqueios"><span class="e">🔒</span>Bloqueios</button>
   <button data-t="lembretes"><span class="e">📝</span>Lembretes<span class="badge hidden" id="badge3"></span></button>
+  <button data-t="mural"><span class="e">💬</span>Mural<span class="badge hidden" id="badge4"></span></button>
   <button data-t="ajustes"><span class="e">⚙️</span>Ajustes</button>
 </div></nav>
 
@@ -258,11 +269,15 @@ function bloqueio(prof,s,t){
 }
 const doTurno = (prof,s,t) => S.ag.filter(a=>a.prof===prof&&a.data===s&&a.turno===t).sort((a,b)=>(a.criadoEm||0)-(b.criadoEm||0));
 const lotado=(prof,s,t)=>S.lot.find(x=>x.prof===prof&&x.data===s&&x.turno===t)||null;
+const meuPid=()=>S.user&&S.user.pid;
+function equipeN(prof,s,t){ const k=prof+'|'+s+'|'+t; let n=doTurno(prof,s,t).length; for(const o of (S.ocup||[])){ if(o.id===meuPid()) continue; n+=((o.counts||{})[k]||0); } return n; }
+const equipeCap=(prof,s,t)=>vagas(prof,s,t)*(+S.cfg.nAcs||4);
 function estado(prof,s,t){
   const cap=vagas(prof,s,t); if(!cap){ const n0=doTurno(prof,s,t).length; return n0?{tipo:'over',cap:0,n:n0}:{tipo:'none',cap:0,n:0}; }
   const n=doTurno(prof,s,t).length, bl=bloqueio(prof,s,t);
   if(bl) return {tipo:'lock',cap,n,bl};
-  const lt=lotado(prof,s,t);
+  let lt=lotado(prof,s,t);
+  if(!lt){ const tn=equipeN(prof,s,t), tc=equipeCap(prof,s,t); if(tc>0 && tn>=tc) lt={auto:true,n:tn,cap:tc}; }
   if(lt) return {tipo: n>cap?'over':'full', cap, n, lot:lt};
   return {tipo: n>cap?'over': n===cap?'full':'free', cap, n};
 }
@@ -316,7 +331,14 @@ const Store = {
     if(DB){ const {id,...b}=a; try{ await DB.collection('agendamentos').doc(id).set(b);}catch(e){erroDb(e)} } else lsSave(); },
   async delAg(id){ S.ag=S.ag.filter(x=>x.id!==id); render();
     if(DB){ try{ await DB.collection('agendamentos').doc(id).delete();}catch(e){erroDb(e)} } else lsSave(); },
-  async addBl(b){ b.id=uid(); b.criadoEm=Date.now(); S.bl.push(b); render();
+  async addMsg(m){ const id=uid(); const doc={...m,criadoEm:Date.now(),autorId:meuPid(),autorNome:S.cfg.acsNome||(S.user&&S.user.displayName)||''};
+    S.mural=[...(S.mural||[]),{id,...doc}]; render();
+    try{ await DB.collection('mural').doc(id).set(doc); }catch(e){ erroDb(e); } },
+  async updMsg(id,patch){ const m=(S.mural||[]).find(x=>x.id===id); if(m) Object.assign(m,patch); render();
+    try{ await DB.collection('mural').doc(id).update(patch); }catch(e){ erroDb(e); } },
+  async delMsg(id){ S.mural=(S.mural||[]).filter(x=>x.id!==id); render();
+    try{ await DB.collection('mural').doc(id).delete(); }catch(e){ erroDb(e); } },
+  async addBl(b){ b.id=uid(); b.criadoEm=Date.now(); b.criadoPor=meuPid()||''; b.criadoPorNome=S.cfg.acsNome||''; S.bl.push(b); render();
     if(DB){ const {id,...r}=b; try{ await DB.collection('bloqueios').doc(id).set(r);}catch(e){erroDb(e)} } else lsSave(); },
   async addLot(l){ l.id=uid(); l.criadoEm=Date.now(); S.lot.push(l); render();
     if(DB){ const {id,...r}=l; try{ await DB.collection('lotados').doc(id).set(r);}catch(e){erroDb(e)} } else lsSave(); },
@@ -354,14 +376,23 @@ const Store = {
     if(DB){ try{ await DB.collection('bloqueios').doc(id).delete();}catch(e){erroDb(e)} } else lsSave(); },
   async saveCfg(){ render();
     if(DB){ try{
-      if(isAdmin()) await DB.doc('config/equipe').set(JSON.parse(JSON.stringify({vagas:S.cfg.vagas,feriadosOff:S.cfg.feriadosOff??null})));
-      await DB.doc('perfil').set({msgModelo:S.cfg.msgModelo||null,acsNome:S.cfg.acsNome||''});
+      if(isAdmin()) await DB.doc('config/equipe').set(JSON.parse(JSON.stringify({vagas:S.cfg.vagas,feriadosOff:S.cfg.feriadosOff??null,nAcs:+S.cfg.nAcs||4})));
+      await DB.doc('perfil').merge({msgModelo:S.cfg.msgModelo||null,acsNome:S.cfg.acsNome||''});
     }catch(e){erroDb(e)} } }
 };
 
 let UNSUBS=[];
+let ocupUltimo='', ocupT=null;
+function agendarSyncOcup(){ clearTimeout(ocupT); ocupT=setTimeout(syncOcup,1500); }
+async function syncOcup(){
+  if(!DB||!meuPid()||S.modo==='semacesso') return;
+  const hoje=todayIso(), counts={};
+  for(const a of S.ag){ if(a.data>=hoje){ const k=a.prof+'|'+a.data+'|'+a.turno; counts[k]=(counts[k]||0)+1; } }
+  const js=JSON.stringify(counts); if(js===ocupUltimo) return; ocupUltimo=js;
+  try{ await DB.collection('ocupacao').doc(meuPid()).set({nome:S.cfg.acsNome||'',counts,atualizadoEm:Date.now()}); }catch(e){ ocupUltimo=''; }
+}
 function iniciar(){ render(); }
-function desconectar(){ UNSUBS.forEach(u=>{ try{u()}catch(e){} }); UNSUBS=[]; DB=null; S.ag=[];S.bl=[];S.lot=[];S.ext=[];S.lem=[];S.todo=[];S.notas=[]; }
+function desconectar(){ UNSUBS.forEach(u=>{ try{u()}catch(e){} }); UNSUBS=[]; DB=null; S.ag=[];S.bl=[];S.lot=[];S.ext=[];S.lem=[];S.todo=[];S.notas=[];S.ocup=[];S.mural=[];S.muralLido=0;S.vistoBl=null; }
 function conectar(db, usuario){
   desconectar(); DB=db; S.user=usuario; S.modo='carregando'; render();
   const nomes=['notas','afazeres','lembretes','extras','lotados','agendamentos','bloqueios'];
@@ -373,10 +404,16 @@ function conectar(db, usuario){
   const corte=iso(addDays(new Date(),-60));
   for(const n of nomes){
     const q = n==='agendamentos' ? db.collection(n).where('data','>=',corte) : db.collection(n);
-    UNSUBS.push(q.onSnapshot(snap=>{ S[chave[n]]=snap.docs.map(d=>({id:d.id,...d.data()})); if(!snap.metadata.fromCache) pronto(n); render(); }, fail));
+    UNSUBS.push(q.onSnapshot(snap=>{ S[chave[n]]=snap.docs.map(d=>({id:d.id,...d.data()})); if(!snap.metadata.fromCache){ pronto(n); if(n==='agendamentos') agendarSyncOcup(); } render(); }, fail));
   }
-  UNSUBS.push(db.doc('config/equipe').onSnapshot(snap=>{ if(snap.exists){ const c=snap.data(); S.cfg.vagas=JSON.parse(JSON.stringify(c.vagas||DEFAULT_VAGAS)); S.cfg.feriadosOff=c.feriadosOff?[...c.feriadosOff]:null; } if(!snap.metadata.fromCache) pronto('cfg'); render(); }, fail));
-  UNSUBS.push(db.doc('perfil').onSnapshot(snap=>{ const c=snap.exists?snap.data():{}; S.cfg.msgModelo=c.msgModelo||null; S.cfg.acsNome=c.acsNome||((usuario&&usuario.displayName)||'').split(' ')[0]||''; if(!snap.metadata.fromCache) pronto('perfil'); render(); }, fail));
+  ocupUltimo='';
+  UNSUBS.push(db.collection('ocupacao').onSnapshot(snap=>{ S.ocup=snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{}));
+  UNSUBS.push(db.collection('mural').where('criadoEm','>=',Date.now()-120*864e5).onSnapshot(snap=>{ S.mural=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.criadoEm-b.criadoEm); render(); }, ()=>{}));
+  UNSUBS.push(db.doc('config/equipe').onSnapshot(snap=>{ if(snap.exists){ const c=snap.data(); S.cfg.vagas=JSON.parse(JSON.stringify(c.vagas||DEFAULT_VAGAS)); S.cfg.feriadosOff=c.feriadosOff?[...c.feriadosOff]:null; S.cfg.nAcs=c.nAcs||4; } if(!snap.metadata.fromCache) pronto('cfg'); render(); }, fail));
+  UNSUBS.push(db.doc('perfil').onSnapshot(snap=>{ const c=snap.exists?snap.data():{};
+    if(!snap.metadata.fromCache){ if(c.vistoBl==null){ c.vistoBl=Date.now(); db.doc('perfil').merge({vistoBl:c.vistoBl}).catch(()=>{}); } }
+    S.vistoBl=c.vistoBl||Date.now(); S.muralLido=Math.max(S.muralLido||0, c.muralLido||0);
+    S.cfg.msgModelo=c.msgModelo||null; S.cfg.acsNome=c.acsNome||((usuario&&usuario.displayName)||'').split(' ')[0]||''; if(!snap.metadata.fromCache) pronto('perfil'); render(); }, fail));
 }
 
 /* ===================== Render ===================== */
@@ -388,6 +425,7 @@ function render(){
   document.querySelectorAll('#profSeg button').forEach(b=>b.classList.toggle('on',b.dataset.p===S.prof));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
   const pend=aRemarcar(); const bd=$('#badge'); bd.textContent=pend.length; bd.classList.toggle('hidden',!pend.length);
+  const nMu=muralNaoLidas().length; const b4=$('#badge4'); b4.textContent=nMu; b4.classList.toggle('hidden',!nMu);
   const nLem=S.lem.length+S.todo.filter(t=>!t.feito).length; const b3=$('#badge3'); b3.textContent=nLem; b3.classList.toggle('hidden',!nLem);
   $('#btnBuscar').classList.toggle('p',S.tab==='buscar');
   const nAv=paraAvisar().length; const b2=$('#badge2'); b2.textContent=nAv; b2.classList.toggle('hidden',!nAv);
@@ -395,13 +433,20 @@ function render(){
   $('#banner').innerHTML = S.modo==='semacesso' ? `<div class="banner" style="background:var(--badbg);color:var(--bad)">O e-mail <b>${esc(S.user&&S.user.email)}</b> ainda não tem acesso. Peça ao Gabriel para liberar e depois recarregue a página. <button class="btn sm" data-act="sair" style="margin-left:6px">Trocar de conta</button></div>`
     : S.modo==='cota' ? '<div class="banner" style="background:var(--badbg);color:var(--bad)">O limite diário gratuito do banco foi atingido. A agenda volta a funcionar de madrugada (por volta das 5h).</div>'
     : S.modo==='erro' ? '<div class="banner">Não consegui carregar os dados. Verifique a internet e recarregue a página.</div>' : '';
-  ({agenda:rAgenda, remarcar:rRemarcar, avisar:rAvisar, bloqueios:rBloqueios, buscar:rBuscar, lembretes:rLembretes, ajustes:rAjustes})[S.tab]();
+  ({agenda:rAgenda, remarcar:rRemarcar, avisar:rAvisar, bloqueios:rBloqueios, buscar:rBuscar, lembretes:rLembretes, mural:rMural, ajustes:rAjustes})[S.tab]();
   if(S.sheetDia) abrirDia(S.sheetDia,true);
 }
 
+function bloqueiosNovos(){ const hoje=todayIso(); return S.bl.filter(b=>(b.criadoEm||0)>(S.vistoBl||Infinity) && b.fim>=hoje && b.criadoPor!==meuPid()).sort((a,b)=>a.inicio.localeCompare(b.inicio)); }
+function meusAfetados(b){ return S.ag.filter(a=>(b.prof==='ambos'||a.prof===b.prof)&&a.data>=b.inicio&&a.data<=b.fim&&(b.turno==='MT'||a.turno===b.turno)); }
 function rAgenda(){
   const P=S.prof, hoje=todayIso();
   let h='';
+  const nb=bloqueiosNovos();
+  if(nb.length) h+=`<div class="card" style="border-color:var(--bad)"><h3 style="color:var(--bad)">🔔 Bloqueio${nb.length>1?'s':''} novo${nb.length>1?'s':''}</h3>${nb.map(b=>{const n=meusAfetados(b).length;return `<div style="margin-top:6px;font-size:13.5px"><b>${esc(b.criadoPorNome||'A equipe')}</b> bloqueou <b>${b.prof==='ambos'?'Ednaldo e Elaine':PROFS[b.prof].nome}</b> · ${b.inicio===b.fim?fmtCurto(b.inicio):fmtCurto(b.inicio)+' a '+fmtCurto(b.fim)} · ${b.turno==='MT'?'dia todo':TURNOS[b.turno].toLowerCase()} — ${esc(b.motivo||'')}${n?`<br><span style="color:var(--bad);font-weight:600">${n} paciente${n>1?'s':''} seu${n>1?'s':''} para remarcar</span>`:''}</div>`;}).join('')}
+  <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">${nb.some(b=>meusAfetados(b).length)?'<button class="btn sm p" data-act="ir-remarcar">Ver pacientes para remarcar</button>':''}<button class="btn sm" data-act="bl-visto">Ok, entendi</button></div></div>`;
+  const nm=muralNaoLidas();
+  if(nm.length) h+=`<div class="card" style="background:var(--pbg);border-color:transparent;cursor:pointer" data-act="ir-mural"><h3 style="margin:0">💬 ${nm.length} recado${nm.length>1?'s':''} novo${nm.length>1?'s':''} no mural</h3><div class="mini" style="margin-top:4px">${esc(nm[nm.length-1].autorNome||'')}: ${esc(String(nm[nm.length-1].texto||'').slice(0,90))}${String(nm[nm.length-1].texto||'').length>90?'…':''}</div></div>`;
   if(S.mover){ const a=S.ag.find(x=>x.id===S.mover);
     if(a) h+=`<div class="mover"><span>Escolha o novo dia para <b>${esc(a.nome)}</b></span><button data-act="cancel-mover">Cancelar</button></div>`; else S.mover=null; }
   const pend=aRemarcar().filter(a=>a.prof===P);
@@ -614,6 +659,31 @@ function rLembretesPac(topo){
   ['lemNome','lemObs'].forEach(i=>$('#'+i).oninput=e=>{ lemForm[i==='lemNome'?'nome':'obs']=e.target.value; });
   $('#lemData').onchange=e=>{ lemForm.data=e.target.value; };
 }
+const EQUIPE=['Gabriel','Itatiana','Gilberto','Michel'];
+function muralNaoLidas(){ return (S.mural||[]).filter(m=>m.criadoEm>(S.muralLido||0) && m.autorId!==meuPid()); }
+function quando(ts){ const d=new Date(ts), h=new Date(), hm=pad(d.getHours())+':'+pad(d.getMinutes());
+  const dd=iso(d); if(dd===iso(h)) return 'hoje '+hm; if(dd===iso(addDays(h,-1))) return 'ontem '+hm; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+hm; }
+let muralPara='', muralTexto='', muralOcultar=false, muralLidoT=null;
+function marcarMuralLido(){ const ult=Math.max(0,...(S.mural||[]).map(m=>m.criadoEm)); if(ult>(S.muralLido||0)){ S.muralLido=ult; const b4=$('#badge4'); if(b4) b4.classList.add('hidden'); clearTimeout(muralLidoT); muralLidoT=setTimeout(()=>{ DB&&DB.doc('perfil').merge({muralLido:ult}).catch(()=>{}); },800); } }
+function rMural(){
+  const eu=S.cfg.acsNome||'';
+  let L=(S.mural||[]); if(muralOcultar) L=L.filter(m=>!m.resolvido);
+  const lidoAntes=S.muralLido||0;
+  let h=`<div class="card"><div class="row between"><h3 style="margin:0">💬 Mural da equipe</h3><button class="btn sm" data-act="mu-ocultar">${muralOcultar?'Mostrar resolvidos':'Ocultar resolvidos'}</button></div><div class="mini" style="margin-top:4px">Todos da equipe veem. Use para combinar marcações, avisos e pedidos.</div></div>`;
+  h+= L.length ? `<div class="chat">${L.map(m=>{
+      const meu=m.autorId===meuPid(), praMim=m.para&&eu&&m.para.toLowerCase()===eu.toLowerCase(), novo=m.criadoEm>lidoAntes&&!meu;
+      return `<div class="msg ${meu?'eu':''} ${m.resolvido?'feito':''} ${praMim?'pramim':''}">
+        <div class="mh"><b>${esc(m.autorNome||'?')}</b>${m.para?` → <b>${esc(m.para)}</b>`:''}<span>${quando(m.criadoEm)}${novo?' · <b style="color:var(--p)">novo</b>':''}</span></div>
+        <div class="mt">${esc(m.texto)}</div>
+        <div class="ma">${m.resolvido?`<span class="tag" style="background:var(--okbg);color:var(--ok)">✅ resolvido${m.resolvidoPor?' por '+esc(m.resolvidoPor):''}</span><button class="lnk" data-act="mu-reabrir" data-id="${m.id}">reabrir</button>`:`<button class="lnk" data-act="mu-resolver" data-id="${m.id}">✅ marcar resolvido</button>`}${(meu||isAdmin())?`<button class="lnk" data-act="mu-del" data-id="${m.id}">apagar</button>`:''}</div></div>`;}).join('')}</div>`
+    : `<div class="card"><div class="empty">Nenhum recado ainda. Escreva o primeiro abaixo. 👇</div></div>`;
+  h+=`<div class="card composer"><label class="f" style="margin-top:0">Para (opcional)</label><div class="chips" style="flex-wrap:wrap">${['',...EQUIPE.filter(n=>n.toLowerCase()!==eu.toLowerCase())].map(n=>`<button class="chip ${muralPara===n?'on':''}" data-act="mu-para" data-v="${n}">${n||'Todos'}</button>`).join('')}</div>
+    <textarea class="in" id="muTexto" rows="3" style="margin-top:8px;resize:vertical" placeholder="Ex.: Gilberto, precisa marcar a gestante da rua X para daqui a 2 semanas">${esc(muralTexto)}</textarea>
+    <button class="btn p" style="width:100%;margin-top:8px" data-act="mu-enviar">Enviar recado</button></div>`;
+  view.innerHTML=h;
+  $('#muTexto').oninput=e=>{ muralTexto=e.target.value; };
+  marcarMuralLido();
+}
 let busca='';
 function rBuscar(){
   const q=busca.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
@@ -632,7 +702,8 @@ function rAjustes(){
   view.innerHTML=`<div class="card"><h3>Vagas por turno — ${PROFS[P].nome}</h3><div class="mini" style="margin-bottom:8px">Sua base de vagas. Use 0 quando não há atendimento. Você ainda pode agendar extra (urgência) acima disso.</div>
   <div class="vgrid"><div></div><div class="mini" style="text-align:center">Manhã</div><div class="mini" style="text-align:center">Tarde</div>
   ${[1,2,3,4,5].map(w=>`<div style="font-weight:600">${DIAS_L[w]}</div>${['M','T'].map(t=>`<input type="number" min="0" max="20" class="in" data-w="${w}" data-t="${t}" value="${(v[w]||{})[t]||0}" ${isAdmin()?'':'disabled'}>`).join('')}`).join('')}</div>
-  ${isAdmin()?`<div style="margin-top:10px"><button class="btn p" data-act="salvar-vagas">Salvar vagas</button> <button class="btn" data-act="reset-vagas">Restaurar padrão</button></div>`:'<div class="mini" style="margin-top:8px">🔐 Só o Gabriel altera as vagas.</div>'}</div>
+  ${isAdmin()?`<div style="margin-top:10px"><button class="btn p" data-act="salvar-vagas">Salvar vagas</button> <button class="btn" data-act="reset-vagas">Restaurar padrão</button></div>`:'<div class="mini" style="margin-top:8px">🔐 Só o Gabriel altera as vagas.</div>'}
+  <div class="row" style="gap:8px;margin-top:12px;align-items:center"><span class="mini" style="flex:1">ACS que dividem as vagas (para o total da equipe: ${(+S.cfg.nAcs||4)} × vagas)</span><input type="number" min="1" max="10" class="in" id="nAcs" value="${+S.cfg.nAcs||4}" style="width:70px;text-align:center" ${isAdmin()?'':'disabled'}></div></div>
   <div class="card"><h3>Feriados bloqueados automaticamente</h3><div class="mini" style="margin-bottom:6px">Desmarque os que a clínica abre. Os municipais marcados “conferir” dependem de decreto da Prefeitura.</div>
   ${fer.map(h=>`<label class="switch"><span>${fmtCurto(h.data)} — ${esc(h.nome)}${h.obs?`<br><span class="mini">${esc(h.obs)}</span>`:''}</span> <input type="checkbox" ${isAdmin()?'':'disabled'} data-fer="${h.key}" ${off.includes(h.key)?'':'checked'}></label>`).join('')}</div>
   <div class="card" id="cardMsg"><h3>📲 Mensagem de remarcação</h3><div class="mini" style="margin-bottom:6px">Escreva do seu jeito. Toque num campo abaixo para inserir — ele é trocado pelos dados de cada paciente. Use *texto* para negrito no WhatsApp.</div>
@@ -677,7 +748,9 @@ function abrirDia(s,refresh){
     const e=estado(P,s,t), L=doTurno(P,s,t), bl=e.bl;
     const passado = s<todayIso();
     h+=`<div class="turno ${bl?'lock':''}"><div class="hd"><b>${TURNOS[t]}${ex?' <span class="tag x">atend. extra</span>':''}</b><span class="pill s-${e.tipo}">${e.lot?'📌 lotada · ':''}${e.n}/${cap}${e.n>cap?' (+'+(e.n-cap)+' extra)':''}</span></div>`;
-    if(!bl && e.lot) h+=`<div class="lockmsg" style="color:var(--warn)">📌 Agenda lotada${e.lot.obs?' — '+esc(e.lot.obs):''}</div><div class="mini" style="margin:2px 0 6px">Vagas preenchidas (inclusive pelos colegas). Não entra nas sugestões de vaga.</div>`;
+    if(!bl && cap) h+=`<div class="mini" style="margin:-2px 0 6px">👥 Equipe: <b>${equipeN(P,s,t)}/${equipeCap(P,s,t)}</b> vagas usadas</div>`;
+    if(!bl && e.lot) h+= e.lot.auto ? `<div class="lockmsg" style="color:var(--warn)">📌 Agenda da equipe cheia (${e.lot.n}/${e.lot.cap})</div><div class="mini" style="margin:2px 0 6px">Calculado automaticamente com as agendas de todos. Não entra nas sugestões de vaga.</div>`
+      : `<div class="lockmsg" style="color:var(--warn)">📌 Agenda lotada${e.lot.obs?' — '+esc(e.lot.obs):''}</div><div class="mini" style="margin:2px 0 6px">Marcado à mão. Não entra nas sugestões de vaga.</div>`;
     if(bl) h+=`<div class="lockmsg">🔒 ${esc(bl.motivo)}</div>${bl.feriado?'':`<div class="mini" style="margin:2px 0 6px">Bloqueio de ${bl.inicio===bl.fim?fmtCurto(bl.inicio):fmtCurto(bl.inicio)+' a '+fmtCurto(bl.fim)}</div>`}`;
     h+= L.length ? `<div class="list">${L.map((a,i)=>`<div class="item"><div class="t"><b>${i+1}. ${esc(a.nome)}</b>${a.remarcadoDe?`<small>remarcado de ${fmtCurto(a.remarcadoDe)}</small>`:''}${a.obs?`<div class="nota">📝 ${esc(a.obs)}</div>`:''}</div>${ehExtra(a)?'<span class="tag x">extra</span>':''}<button class="btn sm" data-act="editar" data-id="${a.id}">✎</button><button class="btn sm" data-act="remarcar" data-id="${a.id}">Remarcar</button></div>`).join('')}</div>` : (bl?'':'<div class="empty">Nenhum paciente.</div>');
     if(mov){
@@ -693,7 +766,7 @@ function abrirDia(s,refresh){
       h+=`<div class="mini" style="margin-top:6px">Não dá para agendar neste turno. Se algum paciente <b>já estava marcado</b> antes do bloqueio, registre aqui — ele vai direto para remarcar:</div>
       <div class="addrow"><input class="in" placeholder="Paciente que já estava marcado" data-draft="${kb}" value="${esc(rascunho[kb]||'')}"><button class="btn" data-act="add-bloq" data-d="${s}" data-t="${t}">+ Registrar</button></div>`;
     }
-    if(!bl && !passado && !mov) h+= e.lot ? `<button class="btn sm" style="margin-top:8px" data-act="del-lot" data-id="${e.lot.id}">Desfazer “lotada”</button>` : `<button class="btn sm" style="margin-top:8px" data-act="lotar" data-d="${s}" data-t="${t}">📌 Marcar ${TURNOS[t].toLowerCase()} como lotada</button>`;
+    if(!bl && !passado && !mov && !(e.lot&&e.lot.auto)) h+= e.lot ? `<button class="btn sm" style="margin-top:8px" data-act="del-lot" data-id="${e.lot.id}">Desfazer “lotada”</button>` : `<button class="btn sm" style="margin-top:8px" data-act="lotar" data-d="${s}" data-t="${t}">📌 Marcar ${TURNOS[t].toLowerCase()} como lotada</button>`;
     if(ex && !L.length && !passado && !mov) h+=`<button class="btn sm d" style="margin-top:8px;margin-left:6px" data-act="del-ext" data-id="${ex.id}">Fechar atendimento extra</button>`;
     h+=`</div>`;
   }
@@ -833,6 +906,15 @@ document.addEventListener('click',async ev=>{
     case 'ne-salvar': { const tx=$('#neTexto').value.trim(); if(!tx) return; const n=S.notas.find(x=>x.id===d.id); const antes=n?{texto:n.texto,editadoEm:n.editadoEm||null}:null; await Store.updNota(d.id,{texto:tx,editadoEm:Date.now()}); fecharSheet(); toast(`✓ Nota atualizada. ${antes?botaoDesfazer(()=>Store.updNota(d.id,antes)):''}`,7000); break; }
     case 'nt-del': { const n=S.notas.find(x=>x.id===d.id); if(!n) return; const c={...n}; await Store.delNota(d.id); fecharSheet(); toast(`Nota excluída. ${botaoDesfazer(()=>Store.restoreNota(c))}`,8000); break; }
     case 'exportar': exportarBackup(); break;
+    case 'ir-remarcar': S.tab='remarcar'; render(); window.scrollTo({top:0}); break;
+    case 'bl-visto': S.vistoBl=Date.now(); render(); DB&&DB.doc('perfil').merge({vistoBl:S.vistoBl}).catch(()=>{}); break;
+    case 'ir-mural': S.tab='mural'; render(); window.scrollTo({top:document.body.scrollHeight}); break;
+    case 'mu-para': muralPara=d.v; rMural(); break;
+    case 'mu-ocultar': muralOcultar=!muralOcultar; rMural(); break;
+    case 'mu-enviar': { const tx=$('#muTexto').value.trim(); if(!tx){ $('#muTexto').focus(); return; } await Store.addMsg({texto:tx,para:muralPara||'',resolvido:false}); muralTexto=''; muralPara=''; rMural(); window.scrollTo({top:document.body.scrollHeight}); toast('💬 Recado enviado para a equipe.'); break; }
+    case 'mu-resolver': await Store.updMsg(d.id,{resolvido:true,resolvidoPor:S.cfg.acsNome||''}); break;
+    case 'mu-reabrir': await Store.updMsg(d.id,{resolvido:false,resolvidoPor:''}); break;
+    case 'mu-del': { if(el.dataset.ok!=='1'){ el.dataset.ok='1'; el.textContent='confirmar apagar'; return; } await Store.delMsg(d.id); break; }
     case 'senha': {
       S.sheetDia=null;
       sheet.innerHTML=`<div class="grab"></div><div class="row between"><h2>Trocar senha</h2><button class="icon" data-act="fechar">✕</button></div>
@@ -982,7 +1064,7 @@ document.addEventListener('click',async ev=>{
     case 'bloquear-dia': blForm={prof:S.prof,inicio:d.d,fim:d.d,turno:'MT',motivo:''}; fecharSheet(); S.tab='bloqueios'; render(); window.scrollTo({top:0}); break;
     case 'salvar-vagas': {
       const P=S.prof, v={}; document.querySelectorAll('.vgrid input').forEach(i=>{ const w=i.dataset.w; v[w]=v[w]||{}; v[w][i.dataset.t]=Math.max(0,Math.min(20,parseInt(i.value)||0)); });
-      S.cfg.vagas={...S.cfg.vagas,[P]:v}; await Store.saveCfg(); toast('Vagas salvas.'); break; }
+      S.cfg.vagas={...S.cfg.vagas,[P]:v}; const na=$('#nAcs'); if(na) S.cfg.nAcs=Math.max(1,Math.min(10,parseInt(na.value)||4)); await Store.saveCfg(); toast('Vagas salvas.'); break; }
     case 'reset-vagas': S.cfg.vagas={...S.cfg.vagas,[S.prof]:JSON.parse(JSON.stringify(DEFAULT_VAGAS[S.prof]))}; await Store.saveCfg(); toast('Padrão restaurado.'); break;
     case 'copiar': {
       const hoje=todayIso();
@@ -1062,7 +1144,7 @@ if(!firebaseConfig.apiKey){
   function adapter(uid){
     const cpath=n=> PRIVADAS.has(n) ? `usuarios/${uid}/${n}` : n;
     const dpath=p=> p==='perfil' ? `usuarios/${uid}` : p;
-    const refOps=r=>({ set:b=>FS.setDoc(r,b), update:b=>FS.updateDoc(r,b), delete:()=>FS.deleteDoc(r) });
+    const refOps=r=>({ set:b=>FS.setDoc(r,b), merge:b=>FS.setDoc(r,b,{merge:true}), update:b=>FS.updateDoc(r,b), delete:()=>FS.deleteDoc(r) });
     const wrapQ=q=>({
       where:(f,op,v)=>wrapQ(FS.query(q,FS.where(f,op,v))),
       onSnapshot:(next,err)=>FS.onSnapshot(q,{includeMetadataChanges:true},s=>next({docs:s.docs.map(d=>({id:d.id,data:()=>d.data()})),metadata:s.metadata}),err)
@@ -1100,7 +1182,7 @@ if(!firebaseConfig.apiKey){
       const em=(u.email||'').toLowerCase(), local=em.endsWith(DOMINIO)?em.slice(0,-DOMINIO.length):null;
       const nome=local?local.charAt(0).toUpperCase()+local.slice(1):u.displayName;
       $l('#login').classList.add('hidden'); $l('#logPass').value='';
-      conectar(adapter(local||u.uid),{email:u.email,displayName:nome,uid:u.uid,usuario:local});
+      conectar(adapter(local||u.uid),{email:u.email,displayName:nome,uid:u.uid,usuario:local,pid:local||u.uid});
     }
     else { desconectar(); S.user=null; S.modo='carregando'; render(); $l('#login').classList.remove('hidden'); }
   });
