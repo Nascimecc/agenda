@@ -416,7 +416,12 @@ function conectar(db, usuario){
     const q = n==='agendamentos' ? db.collection(n).where('data','>=',corte) : db.collection(n);
     UNSUBS.push(q.onSnapshot(snap=>{ S[chave[n]]=snap.docs.map(d=>({id:d.id,...d.data()})); if(!snap.metadata.fromCache){ pronto(n); if(n==='agendamentos') agendarSyncOcup(); } render(); }, fail));
   }
-  ocupUltimo='';
+  ocupUltimo=''; S.anotMeus={};
+  if((usuario.email||'').toLowerCase()===ADMIN_EMAIL && db.outro){
+    for(const [pid] of OUTROS_ACS){
+      UNSUBS.push(db.outro(pid,'agendamentos').where('anotadoPorAdmin','==',true).onSnapshot(snap=>{ S.anotMeus[pid]=snap.docs.map(d=>({id:d.id,pid,...d.data()})); render(); }, ()=>{}));
+    }
+  }
   UNSUBS.push(db.collection('ocupacao').onSnapshot(snap=>{ S.ocup=snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{}));
   UNSUBS.push(db.collection('mural').where('criadoEm','>=',Date.now()-120*864e5).onSnapshot(snap=>{ S.mural=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.criadoEm-b.criadoEm); render(); }, ()=>{}));
   UNSUBS.push(db.doc('config/equipe').onSnapshot(snap=>{ if(snap.exists){ const c=snap.data(); S.cfg.vagas=JSON.parse(JSON.stringify(c.vagas||DEFAULT_VAGAS)); S.cfg.feriadosOff=c.feriadosOff?[...c.feriadosOff]:null; S.cfg.nAcs=c.nAcs||4; } if(!snap.metadata.fromCache) pronto('cfg'); render(); }, fail));
@@ -674,6 +679,18 @@ function rLembretesPac(topo){
 const EQUIPE=['Gabriel','Itatiana','Gilberto','Michel'];
 const OUTROS_ACS=[['itatiana','Itatiana'],['gilberto','Gilberto'],['michel','Michel']];
 let anotarPara='';
+const nomeAcs=pid=>(OUTROS_ACS.find(x=>x[0]===pid)||[0,pid])[1];
+function anotadosPorMim(){ return Object.values(S.anotMeus||{}).flat(); }
+async function desfazerAnotado(pid,id){
+  const a=(S.anotMeus&&S.anotMeus[pid]||[]).find(x=>x.id===id);
+  try{
+    await DB.outro(pid,'agendamentos').doc(id).delete();
+    if(a){ const ck=a.prof+'|'+a.data+'|'+a.turno, oc=(S.ocup||[]).find(o=>o.id===pid), n=(oc&&oc.counts&&oc.counts[ck])||0;
+      await DB.collection('ocupacao').doc(pid).merge({counts:{[ck]:Math.max(0,n-1)}}); if(oc) oc.counts={...oc.counts,[ck]:Math.max(0,n-1)}; }
+    if(S.anotMeus&&S.anotMeus[pid]) S.anotMeus[pid]=S.anotMeus[pid].filter(x=>x.id!==id);
+    render(); toast('↩️ Removido da agenda do '+nomeAcs(pid)+'.');
+  }catch(e){ erroDb(e); }
+}
 function muralNaoLidas(){ return (S.mural||[]).filter(m=>m.criadoEm>(S.muralLido||0) && m.autorId!==meuPid()); }
 function quando(ts){ const d=new Date(ts), h=new Date(), hm=pad(d.getHours())+':'+pad(d.getMinutes());
   const dd=iso(d); if(dd===iso(h)) return 'hoje '+hm; if(dd===iso(addDays(h,-1))) return 'ontem '+hm; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+hm; }
@@ -726,6 +743,7 @@ function rAjustes(){
   <textarea class="in" id="msgModelo" rows="7" style="resize:vertical;line-height:1.4">${esc(S.cfg.msgModelo||MSG_PADRAO)}</textarea>
   <label class="f">Prévia (exemplo)</label><div class="item" id="msgPrev" style="white-space:pre-wrap;font-size:13.5px;display:block"></div>
   <div class="row" style="margin-top:10px;gap:8px"><button class="btn p" data-act="salvar-msg">Salvar mensagem</button><button class="btn" data-act="msg-padrao">Voltar ao padrão</button></div></div>
+  ${isAdmin()?(()=>{ const L=anotadosPorMim().filter(a=>a.data>=todayIso()).sort((a,b)=>a.data.localeCompare(b.data)); return `<div class="card"><h3>📤 Pacientes que você anotou para outros ACS</h3>${L.length?`<div class="list">${L.map(a=>`<div class="item"><div class="t"><b>${esc(a.nome)}</b><small>${nomeAcs(a.pid)} · ${PROFS[a.prof].nome} · ${fmtCurto(a.data)} ${TURNOS[a.turno].toLowerCase()}${a.anotadoVisto?' · já viu':' · ainda não viu'}</small></div><button class="btn sm d" data-act="desf-anot" data-pid="${a.pid}" data-id="${a.id}">Desfazer</button></div>`).join('')}</div>`:'<div class="empty">Nenhum paciente anotado para outros.</div>'}<div class="mini" style="margin-top:6px">Desfazer tira o paciente da agenda do colega. Você só vê os pacientes que você mesmo anotou.</div></div>`; })():''}
   <div class="card"><h3>Conta e dados</h3><div class="mini">Conectado como <b>${esc(S.user?(S.user.usuario||S.user.email):'')}</b>${isAdmin()?' (administrador)':''}.<br><b>Compartilhado com a equipe:</b> bloqueios, dias lotados, atendimentos extras, vagas por turno e feriados.<br><b>Só seu:</b> pacientes, avisos, lembretes, afazeres, notas e sua mensagem.<br>A agenda carrega os agendamentos dos últimos 60 dias em diante.</div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="exportar">⬇️ Fazer backup</button><label class="btn" style="display:inline-block">⬆️ Restaurar / importar backup<input type="file" accept=".json,application/json" id="impFile" style="display:none"></label>${S.user&&S.user.usuario?'<button class="btn" data-act="senha">🔑 Trocar senha</button>':''}<button class="btn d" data-act="sair">Sair</button></div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="copiar">Copiar lista dos próximos agendados</button><button class="btn" data-act="corrigir-nomes">Aa Corrigir nomes já salvos</button></div></div>`;
@@ -774,6 +792,8 @@ function abrirDia(s,refresh){
     } else if(!bl && !passado){
       const k=s+t;
       if(isAdmin()) h+=`<div class="chips" style="flex-wrap:wrap;margin-top:6px"><span class="mini" style="align-self:center">Agenda de:</span>${[['','Eu'],...OUTROS_ACS].map(([p,n])=>`<button class="chip ${anotarPara===p?'on':''}" data-act="anotar-para" data-v="${p}" style="padding:5px 10px">${n}</button>`).join('')}</div>`;
+      const meusAqui=anotadosPorMim().filter(a=>a.prof===P&&a.data===s&&a.turno===t);
+      if(meusAqui.length) h+=`<div class="mini" style="margin-top:8px">📤 Anotados por você para outros:</div>${meusAqui.map(a=>`<div class="item" style="margin-top:4px"><div class="t"><b>${esc(a.nome)}</b><small>agenda do ${nomeAcs(a.pid)}${a.anotadoVisto?' · já viu':''}${a.obs?' · '+esc(a.obs):''}</small></div><button class="btn sm d" data-act="desf-anot" data-pid="${a.pid}" data-id="${a.id}">Desfazer</button></div>`).join('')}`;
       const pOutro=anotarPara?OUTROS_ACS.find(x=>x[0]===anotarPara):null;
       const nOutro=pOutro?((S.ocup||[]).find(o=>o.id===pOutro[0])||{counts:{}}).counts[P+'|'+s+'|'+t]||0:0;
       if(pOutro) h+=`<div class="mini" style="margin-top:4px">Vai para a agenda do <b>${pOutro[1]}</b> (${nOutro}/${cap} vagas dele)${nOutro>=cap?' — entra como <b>extra</b>':''}.</div>`;
@@ -917,10 +937,10 @@ document.addEventListener('click',async ev=>{
         const ck=S.prof+'|'+d.d+'|'+d.t, oc=(S.ocup||[]).find(o=>o.id===pid), nAtual=(oc&&oc.counts&&oc.counts[ck])||0;
         const id=uid();
         try{
-          await DB.outro(pid,'agendamentos').doc(id).set({prof:S.prof,data:d.d,turno:d.t,nome,obs,extra:nAtual>=vagas(S.prof,d.d,d.t),criadoEm:Date.now(),anotadoPor:S.cfg.acsNome||'Gabriel',anotadoVisto:false});
+          await DB.outro(pid,'agendamentos').doc(id).set({prof:S.prof,data:d.d,turno:d.t,nome,obs,extra:nAtual>=vagas(S.prof,d.d,d.t),criadoEm:Date.now(),anotadoPor:S.cfg.acsNome||'Gabriel',anotadoPorAdmin:true,anotadoVisto:false});
           await DB.collection('ocupacao').doc(pid).merge({counts:{[ck]:nAtual+1}});
           if(oc){ oc.counts={...(oc.counts||{}),[ck]:nAtual+1}; } else { S.ocup=[...(S.ocup||[]),{id:pid,nome:pn,counts:{[ck]:1}}]; }
-          render(); toast(`✓ ${esc(nome)} anotado(a) na agenda do <b>${pn}</b> — ${fmtCurto(d.d)} ${TURNOS[d.t].toLowerCase()}`,6000);
+          render(); toast(`✓ ${esc(nome)} anotado(a) na agenda do <b>${pn}</b> — ${fmtCurto(d.d)} ${TURNOS[d.t].toLowerCase()} ${botaoDesfazer(()=>desfazerAnotado(pid,id))}`,9000);
         }catch(err){ erroDb(err); }
         break;
       }
@@ -931,6 +951,7 @@ document.addEventListener('click',async ev=>{
       else toast(`✓ ${esc(nome)} agendado(a) — ${fmtCurto(d.d)} ${TURNOS[d.t].toLowerCase()}`);
       break; }
     case 'remarcar': abrirRemarcar(d.id); break;
+    case 'desf-anot': { if(el.dataset.ok!=='1'){ el.dataset.ok='1'; el.textContent='Confirmar'; el.classList.add('p'); return; } await desfazerAnotado(d.pid,d.id); break; }
     case 'anotar-para': anotarPara=d.v; abrirDia(S.sheetDia,true); break;
     case 'anotados-visto': { const L=S.ag.filter(a=>a.anotadoPor&&a.anotadoVisto===false); for(const a of L) await Store.updAg(a.id,{anotadoVisto:true}); break; }
     case 'nt-salvar': { const tx=$('#ntTexto').value.trim(); if(!tx){ $('#ntTexto').focus(); return; } await Store.addNota({prof:S.prof,texto:tx,fixada:false}); notaTexto=''; rLembretes(); toast('🗒️ Nota salva.'); break; }
@@ -1184,7 +1205,7 @@ if(!firebaseConfig.apiKey){
     });
     return {
       collection:n=>{ const c=FS.collection(db,cpath(n)); const w=wrapQ(c); w.doc=id=>refOps(FS.doc(c,id)); return w; },
-      outro:(pid,n)=>({ doc:id=>refOps(FS.doc(FS.collection(db,`usuarios/${pid}/${n}`),id)) }),
+      outro:(pid,n)=>{ const c=FS.collection(db,`usuarios/${pid}/${n}`); const w=wrapQ(c); w.doc=id=>refOps(FS.doc(c,id)); return w; },
       doc:p=>{ const r=FS.doc(db,dpath(p)); return { ...refOps(r), onSnapshot:(next,err)=>FS.onSnapshot(r,{includeMetadataChanges:true},s=>next({exists:s.exists(),data:()=>s.data(),metadata:s.metadata}),err) }; }
     };
   }
