@@ -184,7 +184,8 @@ nav.tabs button.on{color:var(--p)}
 <script>
 /* ===================== Constantes ===================== */
 const ADMIN_EMAIL = 'gabrielson3006@gmail.com';
-const isAdmin = () => !!(S.user && (S.user.email||'').toLowerCase()===ADMIN_EMAIL);
+const ADMIN_EMAILS = [ADMIN_EMAIL, 'gabriel@acs.agenda'];
+const isAdmin = () => !!(S.user && ADMIN_EMAILS.includes((S.user.email||'').toLowerCase()));
 const AVISO_ADMIN = '<div class="banner" style="background:var(--pbg);color:var(--ink)">🔐 Só o Gabriel (administrador) pode alterar isto. Você vê tudo normalmente.</div>';
 const PROFS = { ednaldo:{nome:'Ednaldo',pron:'ele'}, elaine:{nome:'Elaine',pron:'ela'} };
 const TURNOS = { M:'Manhã', T:'Tarde' };
@@ -417,7 +418,7 @@ function conectar(db, usuario){
     UNSUBS.push(q.onSnapshot(snap=>{ S[chave[n]]=snap.docs.map(d=>({id:d.id,...d.data()})); if(!snap.metadata.fromCache){ pronto(n); if(n==='agendamentos') agendarSyncOcup(); } render(); }, fail));
   }
   ocupUltimo=''; S.anotMeus={};
-  if((usuario.email||'').toLowerCase()===ADMIN_EMAIL && db.outro){
+  if(ADMIN_EMAILS.includes((usuario.email||'').toLowerCase()) && db.outro){
     for(const [pid] of OUTROS_ACS){
       UNSUBS.push(db.outro(pid,'agendamentos').where('anotadoPorAdmin','==',true).onSnapshot(snap=>{ S.anotMeus[pid]=snap.docs.map(d=>({id:d.id,pid,...d.data()})); render(); }, ()=>{}));
     }
@@ -1237,7 +1238,10 @@ if(!firebaseConfig.apiKey){
       const em=(u.email||'').toLowerCase(), local=em.endsWith(DOMINIO)?em.slice(0,-DOMINIO.length):null;
       const nome=local?local.charAt(0).toUpperCase()+local.slice(1):u.displayName;
       $l('#login').classList.add('hidden'); $l('#logPass').value='';
-      conectar(adapter(local||u.uid),{email:u.email,displayName:nome,uid:u.uid,usuario:local,pid:local||u.uid});
+      // O Gabriel entra pelo Google ou por usuário/senha — os dois usam a mesma pasta de dados
+      const ADMIN_UID='jKLSyB40KnhJ4MkhFc1zZxpc4Ej1';
+      const pid = local==='gabriel' ? ADMIN_UID : (local||u.uid);
+      conectar(adapter(pid),{email:u.email,displayName:nome,uid:u.uid,usuario:local,pid});
     }
     else { desconectar(); S.user=null; S.modo='carregando'; render(); $l('#login').classList.remove('hidden'); }
   });
